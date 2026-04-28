@@ -1,0 +1,107 @@
+{
+  "schema_version": "0.2",
+  "botprint_version": "0.1.0",
+  "created_at": "2026-04-28T00:00:00.000Z",
+  "baseline": {
+    "label": "synthetic-local",
+    "profile_path": "examples/synthetic/local.profile.json"
+  },
+  "candidate": {
+    "label": "synthetic-site-target",
+    "profile_path": "examples/synthetic/site-target.profile.json"
+  },
+  "diffs": [
+    {
+      "id": "rendering.canvas_hash_changed",
+      "category": "rendering",
+      "level": "advisory",
+      "path": "signals.rendering.canvas.hash",
+      "baseline": "synthetic-local-canvas",
+      "candidate": "synthetic-site-canvas",
+      "summary": "Canvas hash changed"
+    },
+    {
+      "id": "storage.local_storage_changed",
+      "category": "storage",
+      "level": "material",
+      "path": "signals.storage.local_storage",
+      "baseline": "available",
+      "candidate": "error",
+      "summary": "localStorage availability changed"
+    },
+    {
+      "id": "storage.session_storage_changed",
+      "category": "storage",
+      "level": "material",
+      "path": "signals.storage.session_storage",
+      "baseline": "available",
+      "candidate": "error",
+      "summary": "sessionStorage availability changed"
+    },
+    {
+      "id": "storage.indexed_db_changed",
+      "category": "storage",
+      "level": "material",
+      "path": "signals.storage.indexed_db",
+      "baseline": "available",
+      "candidate": "error",
+      "summary": "IndexedDB availability changed"
+    },
+    {
+      "id": "permissions.camera_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.camera",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for camera"
+    },
+    {
+      "id": "permissions.geolocation_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.geolocation",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for geolocation"
+    },
+    {
+      "id": "permissions.microphone_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.microphone",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for microphone"
+    },
+    {
+      "id": "permissions.notifications_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.notifications",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for notifications"
+    }
+  ],
+  "verdict": {
+    "level": "material",
+    "material": true,
+    "categories": [
+      "permissions",
+      "rendering",
+      "storage"
+    ],
+    "warnings": [
+      {
+        "id": "comparison.probe_context_mismatch",
+        "summary": "Profiles were collected with different probe contexts.",
+        "implications": "Diffs may include artifacts of page state, framework behavior, or measurement mode rather than browser-environment drift alone.",
+        "evidence": {
+          "baseline_probe_context": "local-diagnostic-page",
+          "candidate_probe_context": "existing-target"
+        }
+      }
+    ]
+  }
+}

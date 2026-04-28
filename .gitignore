@@ -1,0 +1,66 @@
+/.DS_Store
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Bun compile intermediates
+*.bun-build
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Editor and local tooling state
+.idea/
+.vscode/
+
+# Local AI-agent instructions and working notes
+AGENTS.md
+CLAUDE.md
+AGENTS.local.md
+CLAUDE.local.md
+
+# Local-only planning docs
+P0_BUILD_PLAN.md
+PRODUCT_BRIEF.md
+botprint_planning_notes.md
+
+# Generated Botprint artifacts. Keep curated examples and fixtures trackable.
+*.profile.json
+*.compare.json
+*.compare.md
+*.comparison.json
+*.report.md
+*.agent.md
+botprint-report.json
+botprint-report.md
+/.botprint/
+/artifacts/
+/tmp/
+!examples/**/*.profile.json
+!examples/**/*.compare.json
+!examples/**/*.compare.md
+!examples/**/*.comparison.json
+!examples/**/*.report.md
+!examples/**/*.agent.md
+!tests/fixtures/**/*.profile.json
+!tests/fixtures/**/*.compare.json
+!tests/fixtures/**/*.compare.md
+!tests/fixtures/**/*.comparison.json
+!tests/fixtures/**/*.report.md
+!tests/fixtures/**/*.agent.md

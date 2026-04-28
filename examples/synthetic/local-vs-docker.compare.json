@@ -1,0 +1,191 @@
+{
+  "schema_version": "0.2",
+  "botprint_version": "0.1.0",
+  "created_at": "2026-04-28T00:00:00.000Z",
+  "baseline": {
+    "label": "synthetic-local",
+    "profile_path": "examples/synthetic/local.profile.json"
+  },
+  "candidate": {
+    "label": "synthetic-docker",
+    "profile_path": "examples/synthetic/docker.profile.json"
+  },
+  "diffs": [
+    {
+      "id": "identity.user_agent_changed",
+      "category": "identity",
+      "level": "advisory",
+      "path": "signals.identity.user_agent",
+      "baseline": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36",
+      "candidate": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/145.0.0.0 Safari/537.36",
+      "summary": "User agent changed"
+    },
+    {
+      "id": "environment.timezone_changed",
+      "category": "environment",
+      "level": "material",
+      "path": "signals.environment.timezone",
+      "baseline": "America/New_York",
+      "candidate": "UTC",
+      "summary": "Timezone changed"
+    },
+    {
+      "id": "environment.viewport_changed",
+      "category": "environment",
+      "level": "advisory",
+      "path": "signals.environment.viewport",
+      "baseline": {
+        "width": 1440,
+        "height": 900,
+        "device_scale_factor": 2
+      },
+      "candidate": {
+        "width": 1280,
+        "height": 720,
+        "device_scale_factor": 1
+      },
+      "summary": "Viewport changed"
+    },
+    {
+      "id": "environment.screen_changed",
+      "category": "environment",
+      "level": "advisory",
+      "path": "signals.environment.screen",
+      "baseline": {
+        "width": 1440,
+        "height": 900,
+        "avail_width": 1440,
+        "avail_height": 875
+      },
+      "candidate": {
+        "width": 1280,
+        "height": 720,
+        "avail_width": 1280,
+        "avail_height": 720
+      },
+      "summary": "Screen metrics changed"
+    },
+    {
+      "id": "environment.hardware_concurrency_changed",
+      "category": "environment",
+      "level": "advisory",
+      "path": "signals.environment.hardware_concurrency",
+      "baseline": 8,
+      "candidate": 4,
+      "summary": "Hardware concurrency changed"
+    },
+    {
+      "id": "environment.device_memory_changed",
+      "category": "environment",
+      "level": "advisory",
+      "path": "signals.environment.device_memory",
+      "baseline": 8,
+      "candidate": null,
+      "summary": "Device memory changed"
+    },
+    {
+      "id": "rendering.webgl_renderer_changed",
+      "category": "rendering",
+      "level": "material",
+      "path": "signals.rendering.webgl.unmasked_renderer",
+      "baseline": "ANGLE Metal Renderer: Synthetic GPU",
+      "candidate": "SwiftShader Device (Synthetic)",
+      "summary": "WebGL renderer changed"
+    },
+    {
+      "id": "rendering.canvas_hash_changed",
+      "category": "rendering",
+      "level": "advisory",
+      "path": "signals.rendering.canvas.hash",
+      "baseline": "synthetic-local-canvas",
+      "candidate": "synthetic-docker-canvas",
+      "summary": "Canvas hash changed"
+    },
+    {
+      "id": "storage.indexed_db_changed",
+      "category": "storage",
+      "level": "material",
+      "path": "signals.storage.indexed_db",
+      "baseline": "available",
+      "candidate": "error",
+      "summary": "IndexedDB availability changed"
+    },
+    {
+      "id": "storage.service_worker_changed",
+      "category": "storage",
+      "level": "material",
+      "path": "signals.storage.service_worker",
+      "baseline": "available",
+      "candidate": "unavailable",
+      "summary": "Service worker availability changed"
+    },
+    {
+      "id": "permissions.camera_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.camera",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for camera"
+    },
+    {
+      "id": "permissions.geolocation_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.geolocation",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for geolocation"
+    },
+    {
+      "id": "permissions.microphone_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.microphone",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for microphone"
+    },
+    {
+      "id": "permissions.notifications_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.notifications",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for notifications"
+    },
+    {
+      "id": "cdp.product_changed",
+      "category": "cdp",
+      "level": "advisory",
+      "path": "signals.cdp.product",
+      "baseline": "Chrome/147.0.0.0",
+      "candidate": "HeadlessChrome/145.0.0.0",
+      "summary": "CDP product changed"
+    }
+  ],
+  "verdict": {
+    "level": "material",
+    "material": true,
+    "categories": [
+      "cdp",
+      "environment",
+      "identity",
+      "permissions",
+      "rendering",
+      "storage"
+    ],
+    "warnings": [
+      {
+        "id": "comparison.browser_binary_mismatch",
+        "summary": "Baseline and candidate were collected from different browser binaries.",
+        "implications": "Diffs below may include artifacts of the binary difference, not environment drift alone.",
+        "evidence": {
+          "baseline_product": "Chrome/147.0.0.0",
+          "candidate_product": "HeadlessChrome/145.0.0.0"
+        }
+      }
+    ]
+  }
+}
