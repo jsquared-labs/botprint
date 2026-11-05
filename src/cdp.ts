@@ -42,6 +42,7 @@ export type CdpTarget = {
   title: string;
   url: string;
   attached: boolean;
+  browserContextId?: string;
 };
 
 export async function discoverWebSocketUrl(endpoint: string, headers: Record<string, string>): Promise<string> {
@@ -211,13 +212,17 @@ export async function getTargets(client: CdpClient): Promise<CdpTarget[]> {
 
 function readTargetInfo(value: unknown): CdpTarget {
   const target = typeof value === "object" && value !== null ? (value as JsonObject) : {};
-  return {
+  const out: CdpTarget = {
     targetId: stringValue(target.targetId),
     type: stringValue(target.type),
     title: stringValue(target.title),
     url: stringValue(target.url),
     attached: target.attached === true,
   };
+  if (typeof target.browserContextId === "string" && target.browserContextId.length > 0) {
+    out.browserContextId = target.browserContextId;
+  }
+  return out;
 }
 
 async function messageDataToString(data: unknown): Promise<string> {

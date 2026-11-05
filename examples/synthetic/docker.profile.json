@@ -1,27 +1,51 @@
 {
-  "schema_version": "0.2",
-  "botprint_version": "0.1.0",
+  "schema_version": "0.3",
+  "botprint_version": "0.2.0",
   "created_at": "2026-04-28T00:00:00.000Z",
   "source": {
     "label": "synthetic-docker",
     "cdp_endpoint_kind": "http",
     "browser_version": "HeadlessChrome/145.0.0.0",
     "target_url": "http://host.docker.internal:45002/",
-    "probe_context": "local-diagnostic-page"
+    "probe_context": "local-diagnostic-page",
+    "browser_context_id": "SYNTHETIC_CONTEXT_1",
+    "browser_context_source": "page-target",
+    "probe_timeout_ms": 2000
   },
   "signals": {
     "identity": {
-      "user_agent": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/145.0.0.0 Safari/537.36",
+      "user_agent": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36",
+      "user_agent_data": {
+        "brands": [
+          {
+            "brand": "HeadlessChrome",
+            "version": "145"
+          },
+          {
+            "brand": "Chromium",
+            "version": "145"
+          },
+          {
+            "brand": "Not_A Brand",
+            "version": "8"
+          }
+        ],
+        "mobile": false,
+        "platform": "Synthetic"
+      },
       "platform": "SyntheticPlatform",
+      "language": "en-US",
       "languages": [
         "en-US",
         "en"
       ],
-      "plugins_count": 3,
-      "mime_types_count": 2
+      "plugins_count": 0,
+      "mime_types_count": 0,
+      "pdf_viewer_enabled": false
     },
     "automation": {
       "webdriver": false,
+      "chrome_object": false,
       "globals": {
         "cdc_*": false,
         "__webdriver_*": false,
@@ -39,14 +63,20 @@
         "height": 720,
         "device_scale_factor": 1
       },
+      "outer_window": {
+        "width": 0,
+        "height": 0
+      },
       "screen": {
         "width": 1280,
         "height": 720,
         "avail_width": 1280,
-        "avail_height": 720
+        "avail_height": 720,
+        "color_depth": 24
       },
       "hardware_concurrency": 4,
-      "device_memory": null
+      "device_memory": null,
+      "speech_voices_count": 0
     },
     "rendering": {
       "webgl": {
@@ -59,6 +89,15 @@
       "canvas": {
         "status": "stable",
         "hash": "synthetic-docker-canvas"
+      },
+      "audio": {
+        "status": "available",
+        "hash": "synthetic-docker-canvas-audio"
+      },
+      "fonts": {
+        "status": "available",
+        "checked": 31,
+        "detected": []
       }
     },
     "storage": {
@@ -72,18 +111,144 @@
       "geolocation": "denied",
       "notifications": "denied",
       "camera": "denied",
-      "microphone": "denied"
+      "microphone": "denied",
+      "notification_api": "denied"
     },
     "webrtc": {
       "api_available": true,
       "host_candidate_gathering": "absent",
       "candidate_count": 0
     },
+    "http": {
+      "status": "captured",
+      "request_headers": {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"145\", \"Chromium\";v=\"145\", \"Not_A Brand\";v=\"8\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Synthetic\"",
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36"
+      }
+    },
     "cdp": {
       "product": "HeadlessChrome/145.0.0.0",
       "protocol_version": "1.3",
-      "user_agent": "Synthetic CDP UA HeadlessChrome/145.0.0.0"
+      "user_agent": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36"
     }
   },
-  "findings": []
+  "findings": [
+    {
+      "id": "identity.headless_user_agent",
+      "severity": "warning",
+      "category": "identity",
+      "title": "Browser identifies itself as headless",
+      "evidence": [
+        "User agent reports HeadlessChrome/145.",
+        "Client hint brands include HeadlessChrome."
+      ],
+      "explanation": "The user agent string and/or the Sec-CH-UA client hint brands advertise a headless browser build.",
+      "likely_implications": "Sites can distinguish this browser from a normal desktop browser from the first request, before any script runs.",
+      "suggested_investigation": "Chrome's headless shell (`--headless=old`, Playwright's default chromium_headless_shell) reports HeadlessChrome; new headless mode (`--headless=new`, or Playwright's `channel: 'chromium'`) reports Chrome. Check which headless mode and binary each environment launches."
+    },
+    {
+      "id": "automation.chrome_object_missing",
+      "severity": "notable",
+      "category": "automation",
+      "title": "window.chrome is missing in a Chromium browser",
+      "evidence": [
+        "window.chrome is undefined while the CDP product reports a Chromium browser."
+      ],
+      "explanation": "Headed Chrome and new headless mode define window.chrome; the headless shell binary does not.",
+      "likely_implications": "Scripts that feature-detect Chrome through window.chrome will treat this browser as something else.",
+      "suggested_investigation": "Check whether the environment runs the headless shell binary rather than the full Chrome/Chromium binary in new headless mode."
+    },
+    {
+      "id": "identity.empty_plugins",
+      "severity": "notable",
+      "category": "identity",
+      "title": "Plugin list is empty",
+      "evidence": [
+        "navigator.plugins.length is 0."
+      ],
+      "explanation": "Headed Chrome exposes a fixed set of PDF viewer plugins; headless builds expose none.",
+      "likely_implications": "This may help explain differences between local, Docker, CI, and remote-browser profiles.",
+      "suggested_investigation": "Compare the same signal across the baseline browser and the candidate browser before treating it as material."
+    },
+    {
+      "id": "environment.zero_outer_window",
+      "severity": "notable",
+      "category": "environment",
+      "title": "Outer window size is zero",
+      "evidence": [
+        "window.outerWidth x outerHeight is 0x0."
+      ],
+      "explanation": "A headed browser window always has a non-zero outer size. Zero outer dimensions indicate a headless or windowless context.",
+      "likely_implications": "Scripts that compare inner and outer window sizes will classify this browser as headless.",
+      "suggested_investigation": "Confirm the headless mode in use. New headless mode reports a window size; the headless shell does not."
+    },
+    {
+      "id": "rendering.swiftshader_webgl",
+      "severity": "warning",
+      "category": "rendering",
+      "title": "Software WebGL renderer detected",
+      "evidence": [
+        "Renderer evidence: WebKit WebGL SwiftShader Device (Synthetic)."
+      ],
+      "explanation": "The WebGL renderer appears to be software-backed rather than normal device GPU rendering.",
+      "likely_implications": "Rendering hashes and graphics capability may differ materially from a desktop browser baseline.",
+      "suggested_investigation": "Software rendering is normal in headless, Docker, and CI without a GPU, and is forced by --disable-gpu. Check the launch flags and whether a GPU is available in the candidate environment."
+    },
+    {
+      "id": "rendering.no_common_fonts",
+      "severity": "warning",
+      "category": "rendering",
+      "title": "No common fonts detected",
+      "evidence": [
+        "None of 31 common fonts rendered differently from the generic fallback families."
+      ],
+      "explanation": "The environment appears to have no commonly installed fonts. Text falls back to whatever the system provides, which is often a single generic face or missing glyphs.",
+      "likely_implications": "Screenshots, layout metrics, and text-dependent rendering will differ from a desktop baseline, and some sites treat an empty font set as a non-standard environment.",
+      "suggested_investigation": "Check the container or CI image for installed fonts (for example `fc-list`). Minimal Docker images frequently ship none."
+    },
+    {
+      "id": "storage.indexeddb_unavailable",
+      "severity": "compatibility_risk",
+      "category": "storage",
+      "title": "IndexedDB is unavailable",
+      "evidence": [
+        "IndexedDB status is error."
+      ],
+      "explanation": "The profile could not open a basic IndexedDB database on the probed page.",
+      "likely_implications": "Applications that rely on browser storage may fail or behave differently in this environment.",
+      "suggested_investigation": "Check browser policy, incognito-like modes, and origin/storage restrictions in the candidate environment."
+    },
+    {
+      "id": "permissions.notifications_denied",
+      "severity": "notable",
+      "category": "permissions",
+      "title": "Notification permission is denied by default",
+      "evidence": [
+        "Notification.permission is denied on a fresh page."
+      ],
+      "explanation": "A fresh headed Chrome profile reports Notification.permission as default (prompt). Headless Chrome reports denied without any user interaction.",
+      "likely_implications": "This is a well-known headless indicator, and notification-dependent features will not prompt.",
+      "suggested_investigation": "Confirm the headless mode in use, or whether a policy or context option denies notifications in the candidate environment."
+    },
+    {
+      "id": "http.accept_language_missing",
+      "severity": "warning",
+      "category": "http",
+      "title": "No Accept-Language header is sent",
+      "evidence": [
+        "The browser's request for the diagnostic page carried no Accept-Language header."
+      ],
+      "explanation": "Every headed browser sends Accept-Language. A missing header usually means the browser was launched with no locale configured, which happens with the headless shell and some minimal containers.",
+      "likely_implications": "Sites that negotiate language, currency, or region from Accept-Language will serve different content than the baseline, and some treat the missing header as a non-browser client.",
+      "suggested_investigation": "Set a locale on the context (Playwright `locale`, Puppeteer `--lang`/`--accept-lang`) or in the container environment, matching the baseline."
+    }
+  ]
 }

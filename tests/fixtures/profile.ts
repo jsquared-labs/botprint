@@ -6,12 +6,21 @@ type Overrides = {
   automation?: Partial<BotprintProfile["signals"]["automation"]>;
   identity?: Partial<BotprintProfile["signals"]["identity"]>;
   viewport?: Partial<BotprintProfile["signals"]["environment"]["viewport"]>;
-  rendering?: Partial<BotprintProfile["signals"]["rendering"]>;
+  environment?: Partial<Omit<BotprintProfile["signals"]["environment"], "viewport">>;
+  rendering?: {
+    webgl?: Partial<BotprintProfile["signals"]["rendering"]["webgl"]>;
+    canvas?: Partial<BotprintProfile["signals"]["rendering"]["canvas"]>;
+    audio?: Partial<BotprintProfile["signals"]["rendering"]["audio"]>;
+    fonts?: Partial<BotprintProfile["signals"]["rendering"]["fonts"]>;
+  };
   storage?: Partial<BotprintProfile["signals"]["storage"]>;
   permissions?: BotprintProfile["signals"]["permissions"];
   webrtc?: Partial<BotprintProfile["signals"]["webrtc"]>;
+  http?: BotprintProfile["signals"]["http"] | null;
   cdp?: Partial<BotprintProfile["signals"]["cdp"]>;
 };
+
+export const FIXTURE_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
 
 export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
   const base: BotprintProfile = {
@@ -24,18 +33,33 @@ export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
       browser_version: "Chrome/147.0.0.0",
       target_url: "http://127.0.0.1:3000/",
       probe_context: "local-diagnostic-page",
+      browser_context_id: "CONTEXT_1",
+      browser_context_source: "page-target",
+      probe_timeout_ms: 2000,
       ...overrides.source,
     },
     signals: {
       identity: {
-        user_agent: "Mozilla/5.0",
+        user_agent: FIXTURE_USER_AGENT,
+        user_agent_data: {
+          brands: [
+            { brand: "Chromium", version: "147" },
+            { brand: "Google Chrome", version: "147" },
+            { brand: "Not_A Brand", version: "8" },
+          ],
+          mobile: false,
+          platform: "macOS",
+        },
         platform: "MacIntel",
+        language: "en-US",
         languages: ["en-US", "en"],
         plugins_count: 5,
         mime_types_count: 2,
+        pdf_viewer_enabled: true,
       },
       automation: {
         webdriver: false,
+        chrome_object: true,
         globals: {
           "cdc_*": false,
           "__webdriver_*": false,
@@ -48,14 +72,20 @@ export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
           height: 900,
           device_scale_factor: 2,
         },
+        outer_window: {
+          width: 1440,
+          height: 980,
+        },
         screen: {
           width: 1440,
           height: 900,
           avail_width: 1440,
           avail_height: 875,
+          color_depth: 30,
         },
         hardware_concurrency: 8,
         device_memory: 8,
+        speech_voices_count: 12,
       },
       rendering: {
         webgl: {
@@ -69,6 +99,15 @@ export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
           status: "stable",
           hash: "abc123",
         },
+        audio: {
+          status: "available",
+          hash: "audio123",
+        },
+        fonts: {
+          status: "available",
+          checked: 31,
+          detected: ["Arial", "Georgia", "Helvetica", "Menlo", "Verdana"],
+        },
       },
       storage: {
         cookies_enabled: true,
@@ -80,25 +119,38 @@ export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
       permissions: {
         geolocation: "prompt",
         notifications: "prompt",
+        notification_api: "prompt",
       },
       webrtc: {
         api_available: true,
         host_candidate_gathering: "absent",
         candidate_count: 0,
       },
+      http: {
+        status: "captured",
+        request_headers: {
+          accept: "text/html,application/xhtml+xml",
+          "accept-language": "en-US,en;q=0.9",
+          "sec-ch-ua": '"Chromium";v="147", "Google Chrome";v="147"',
+          "user-agent": FIXTURE_USER_AGENT,
+        },
+      },
       cdp: {
         product: "Chrome/147.0.0.0",
         protocol_version: "1.3",
-        user_agent: "Mozilla/5.0",
+        user_agent: FIXTURE_USER_AGENT,
       },
     },
     findings: [],
   };
 
+  const http = overrides.http === null ? undefined : (overrides.http ?? base.signals.http);
+  const { http: _baseHttp, ...baseSignals } = base.signals;
+
   return {
     ...base,
     signals: {
-      ...base.signals,
+      ...baseSignals,
       identity: {
         ...base.signals.identity,
         ...overrides.identity,
@@ -109,6 +161,7 @@ export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
       },
       environment: {
         ...base.signals.environment,
+        ...overrides.environment,
         viewport: {
           ...base.signals.environment.viewport,
           ...overrides.viewport,
@@ -123,6 +176,14 @@ export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
           ...base.signals.rendering.canvas,
           ...overrides.rendering?.canvas,
         },
+        audio: {
+          ...base.signals.rendering.audio,
+          ...overrides.rendering?.audio,
+        },
+        fonts: {
+          ...base.signals.rendering.fonts,
+          ...overrides.rendering?.fonts,
+        },
       },
       storage: {
         ...base.signals.storage,
@@ -133,6 +194,7 @@ export function sampleProfile(overrides: Overrides = {}): BotprintProfile {
         ...base.signals.webrtc,
         ...overrides.webrtc,
       },
+      ...(http === undefined ? {} : { http }),
       cdp: {
         ...base.signals.cdp,
         ...overrides.cdp,

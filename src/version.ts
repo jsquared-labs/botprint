@@ -1,1 +1,1 @@
-export const BOTPRINT_VERSION = "0.1.0";
+export const BOTPRINT_VERSION = "0.2.0";

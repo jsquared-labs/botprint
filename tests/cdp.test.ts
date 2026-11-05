@@ -62,6 +62,7 @@ describe("getTargets", () => {
               title: "Example",
               url: "https://example.test/",
               attached: true,
+              browserContextId: "CTX1",
             },
             {
               targetId: "worker-1",
@@ -83,6 +84,7 @@ describe("getTargets", () => {
         title: "Example",
         url: "https://example.test/",
         attached: true,
+        browserContextId: "CTX1",
       },
       {
         targetId: "worker-1",

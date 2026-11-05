@@ -191,7 +191,8 @@ describe("agent renderers", () => {
     expect(wordCount(explanation)).toBeLessThanOrEqual(200);
     expect(explanation).toContain("Warnings:");
     expect(explanation).toContain("comparison.browser_binary_mismatch");
-    expect(explanation).toContain("Diffs below may include artifacts of the binary difference");
+    expect(explanation).toContain("(Baseline and candidate were collected from different browser binaries)");
+    expect(explanation).toContain("comparison.headless_mode_mismatch");
   });
 });
 

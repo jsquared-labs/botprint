@@ -12,6 +12,4 @@ These fixtures are generated with `bun run examples:generate`. They are determin
 - `*.compare.md`: Markdown compare reports.
 - `*.agent.md`: compact agent explanations from compare JSON.
 
-## Product Boundary
-
-These examples are for understanding Botprint output and testing parsers. They are not examples of stealth, anti-detect configuration, or browser imitation.
+These examples exist for understanding Botprint output and testing parsers.

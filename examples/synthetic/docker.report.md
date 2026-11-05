@@ -3,24 +3,35 @@
 ## Summary
 - Browser: HeadlessChrome/145.0.0.0
 - Target: http://host.docker.internal:45002/
-- Findings: 2
+- Findings: 9
 
 ## Browser Context
-- User agent: Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/145.0.0.0 Safari/537.36
+- Probe context: fresh page in the browser context of an existing page target
+- User agent: Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36
 - Platform: SyntheticPlatform
+- Language: en-US; languages=["en-US","en"]
 - Timezone: UTC
-- Viewport: 1280x720 @ 1
+- Viewport: 1280x720 @ 1; outer 0x0
 
 ## Key Signals
-- WebDriver: false
+- WebDriver: false; window.chrome: false
 - WebGL: SwiftShader Device (Synthetic)
-- Canvas: stable
+- Canvas: stable; audio: available
+- Fonts: 0 of 31 common fonts detected
 - Storage: cookies=true, indexedDB=error
+- Accept-Language: (not sent)
 
 ## Top Findings
-- **Software WebGL renderer detected** (warning): Renderer evidence: WebKit WebGL SwiftShader Device (Synthetic).
+_Showing top 5 of 9 findings. Use `--json` for the full finding list._
 - **IndexedDB is unavailable** (compatibility_risk): IndexedDB status is error.
+- **Browser identifies itself as headless** (warning): User agent reports HeadlessChrome/145. Client hint brands include HeadlessChrome.
+- **Software WebGL renderer detected** (warning): Renderer evidence: WebKit WebGL SwiftShader Device (Synthetic).
+- **No common fonts detected** (warning): None of 31 common fonts rendered differently from the generic fallback families.
+- **No Accept-Language header is sent** (warning): The browser's request for the diagnostic page carried no Accept-Language header.
 
 ## Suggested Investigation
-- Check whether the candidate ran in headless, Docker, CI, or a GPU-disabled environment.
 - Check browser policy, incognito-like modes, and origin/storage restrictions in the candidate environment.
+- Chrome's headless shell (`--headless=old`, Playwright's default chromium_headless_shell) reports HeadlessChrome; new headless mode (`--headless=new`, or Playwright's `channel: 'chromium'`) reports Chrome. Check which headless mode and binary each environment launches.
+- Software rendering is normal in headless, Docker, and CI without a GPU, and is forced by --disable-gpu. Check the launch flags and whether a GPU is available in the candidate environment.
+- Check the container or CI image for installed fonts (for example `fc-list`). Minimal Docker images frequently ship none.
+- Set a locale on the context (Playwright `locale`, Puppeteer `--lang`/`--accept-lang`) or in the container environment, matching the baseline.
