@@ -184,4 +184,46 @@ describe("compareProfiles", () => {
     expect(result.verdict.categories).toEqual(["automation"]);
   });
 
+  test("warns on headless mode when only the user agent says headless (new headless mode)", () => {
+    // Chrome 156 --headless=new on macOS: CDP product "Chrome/156.0.8078.80", UA "HeadlessChrome/156.0.0.0".
+    const baseline = sampleProfile();
+    const candidate = sampleProfile({
+      identity: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36" },
+    });
+
+    const result = compareProfiles({ baseline, baselinePath: "b.json", candidate, candidatePath: "c.json" });
+
+    expect(result.diffs.map((diff) => diff.id)).toEqual(["identity.user_agent_changed"]);
+    expect(result.verdict.warnings.map((warning) => [warning.id, warning.summary])).toEqual([
+      ["comparison.headless_mode_mismatch", "One profile came from a headless browser and the other from a headed one."],
+    ]);
+  });
+
+  test("describes headless shell vs new headless as a shell difference without a user agent diff", () => {
+    const headlessUa = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36";
+    const shell = sampleProfile({ identity: { user_agent: headlessUa }, cdp: { product: "HeadlessChrome/147.0.0.0" } });
+    const newHeadless = sampleProfile({ identity: { user_agent: headlessUa }, cdp: { product: "Chrome/147.0.0.0" } });
+
+    const result = compareProfiles({ baseline: shell, baselinePath: "b.json", candidate: newHeadless, candidatePath: "c.json" });
+
+    expect(result.diffs.map((diff) => diff.id)).toEqual(["cdp.product_changed"]);
+    expect(result.verdict.warnings.map((warning) => warning.summary)).toEqual(["One profile came from the headless shell binary and the other from a headed or new-headless build."]);
+  });
+
+  test("ignores build-number noise in the user-agent request header too", () => {
+    const baseline = sampleProfile();
+    const candidate = sampleProfile({
+      http: {
+        status: "captured",
+        request_headers: {
+          accept: "text/html,application/xhtml+xml",
+          "accept-language": "en-US,en;q=0.9",
+          "sec-ch-ua": '"Chromium";v="147", "Google Chrome";v="147"',
+          "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7320.55 Safari/537.36",
+        },
+      },
+    });
+
+    expect(compareProfiles({ baseline, baselinePath: "b.json", candidate, candidatePath: "c.json" }).diffs).toEqual([]);
+  });
 });

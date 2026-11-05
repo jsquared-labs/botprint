@@ -1,6 +1,6 @@
 import { discoverWebSocketUrl, connectCdp, getBrowserVersion, getTargets, type CdpClient, type CdpTarget } from "./cdp";
 import { EXIT_CODES } from "./exit-codes";
-import { BotprintError } from "./errors";
+import { BotprintError, errorDetail } from "./errors";
 import { analyzeProfile } from "./findings";
 import { endpointKind, SCHEMA_VERSION, type BotprintProfile, type ProbeWarning, writeProfile } from "./profile";
 import { DEFAULT_PROBE_TIMEOUT_MS, runDiagnosticProbe, runExistingTargetProbe, type ProbeRunResult } from "./probe";
@@ -85,10 +85,15 @@ async function runFreshPageProfile(client: CdpClient, options: RunOptions): Prom
     const diagnosticUrl = browserDiagnosticUrl(server.url, options.diagnosticHost);
     const browserVersion = await getBrowserVersion(client);
     const context = selectBrowserContext(await getTargets(client), options.context);
-    const probe = await runDiagnosticProbe(client, browserVersion, diagnosticUrl, {
-      timeoutMs: probeTimeoutMs,
-      browserContextId: context.browserContextId,
-    });
+    let probe: ProbeRunResult;
+    try {
+      probe = await runDiagnosticProbe(client, browserVersion, diagnosticUrl, {
+        timeoutMs: probeTimeoutMs,
+        browserContextId: context.browserContextId,
+      });
+    } catch (error) {
+      throw rejectedContextError(error, context) ?? error;
+    }
 
     const captured = server.capturedHeaders();
     const warnings: ProbeWarning[] = [...context.warnings];
@@ -170,6 +175,15 @@ export function selectBrowserContext(targets: CdpTarget[], requested: string | u
     source: "page-target",
     warnings: contexts.size > 1 ? ["multiple-browser-contexts"] : [],
   };
+}
+
+// Chromium answers Target.createTarget with "Failed to find browser context with id ..." when an
+// explicit --context id is unknown; surface that as a usage error instead of a CDP failure.
+export function rejectedContextError(error: unknown, context: BrowserContextSelection): BotprintError | undefined {
+  if (context.source !== "explicit" || context.browserContextId === undefined) return undefined;
+  const detail = errorDetail(error);
+  if (!/browser context/i.test(detail)) return undefined;
+  return new BotprintError(`--context ${context.browserContextId} was rejected by the browser: ${detail}. List context IDs with \`botprint targets --cdp <url> --json\`.`, EXIT_CODES.usage);
 }
 
 function buildProfile(

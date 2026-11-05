@@ -7,7 +7,7 @@ export const DEFAULT_PROBE_TIMEOUT_MS = 2_000;
 export const SPEECH_VOICES_WAIT_MS = 500;
 
 // Fonts are checked by name against three generic fallback families; a font counts as
-// detected when its rendered width differs from every fallback. The list mixes common
+// detected when its rendered width differs from at least one fallback. The list mixes common
 // Windows, macOS, and Linux faces so local-vs-Docker drift shows up as a changed set.
 export const FONT_CHECK_LIST = [
   "Arial",

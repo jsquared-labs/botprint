@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { EXIT_CODES } from "../src/exit-codes";
 import { BotprintError } from "../src/errors";
 import { endpointKind } from "../src/profile";
-import { browserDiagnosticUrl, captureRequestHeaders, parseHeaderLines, selectBrowserContext, selectTarget } from "../src/run";
+import { browserDiagnosticUrl, captureRequestHeaders, parseHeaderLines, rejectedContextError, selectBrowserContext, selectTarget } from "../src/run";
 import type { CdpTarget } from "../src/cdp";
 
 describe("parseHeaderLines", () => {
@@ -162,5 +162,22 @@ describe("captureRequestHeaders", () => {
       "sec-ch-ua": '"Chromium";v="153"',
       "user-agent": "Mozilla/5.0",
     });
+  });
+});
+
+describe("rejectedContextError", () => {
+  const explicit = { browserContextId: "C9", source: "explicit" as const, warnings: [] };
+  const unknownContext = new BotprintError("CDP error -32602: Failed to find browser context with id C9", EXIT_CODES.cdpConnectivity);
+
+  test("maps an unknown explicit --context id to a usage error", () => {
+    const error = rejectedContextError(unknownContext, explicit);
+    expect(error).toBeInstanceOf(BotprintError);
+    expect(error?.exitCode).toBe(EXIT_CODES.usage);
+    expect(error?.message).toBe("--context C9 was rejected by the browser: CDP error -32602: Failed to find browser context with id C9. List context IDs with `botprint targets --cdp <url> --json`.");
+  });
+
+  test("leaves other failures and non-explicit contexts untouched", () => {
+    expect(rejectedContextError(new BotprintError("CDP WebSocket closed.", EXIT_CODES.cdpConnectivity), explicit)).toBeUndefined();
+    expect(rejectedContextError(unknownContext, { browserContextId: "C1", source: "page-target", warnings: [] })).toBeUndefined();
   });
 });

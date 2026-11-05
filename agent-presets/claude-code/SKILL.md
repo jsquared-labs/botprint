@@ -43,7 +43,8 @@ Common causes behind the findings you will see most:
 | Finding | Usual cause |
 | --- | --- |
 | `automation.webdriver_exposed` | `--enable-automation`, default in Puppeteer and Playwright. |
-| `identity.headless_user_agent`, `automation.chrome_object_missing`, `environment.zero_outer_window`, `permissions.notifications_denied` | Headless shell binary (Playwright default `chromium`) instead of new headless (`channel: "chromium"`, `--headless=new`). |
+| `identity.headless_user_agent` | Any Chromium headless mode; both the headless shell and `--headless=new` report HeadlessChrome. Only a headed browser reports Chrome. |
+| `automation.chrome_object_missing`, `environment.zero_outer_window`, `permissions.notifications_denied` | Headless shell binary (Playwright default `chromium`) instead of new headless (`channel: "chromium"`, `--headless=new`). |
 | `http.accept_language_missing` | No locale configured; set Playwright `locale` or Chromium `--lang`. |
 | `rendering.swiftshader_webgl` | No GPU in Docker/CI, or `--disable-gpu`. |
 | `rendering.no_common_fonts` | Container image without fonts (`fc-list` empty). |

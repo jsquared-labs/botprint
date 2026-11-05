@@ -127,6 +127,7 @@ Playwright and Puppeteer apply locale, timezone, viewport, permissions, and init
 - `--context default` measures the browser's default context instead (process-level defaults only).
 - `--context <id>` picks a specific context; IDs are listed by `botprint targets --cdp ... --json`.
 - If no page is open, the fresh page falls back to the default context and the profile carries the `default-browser-context` note.
+- The diagnostic page is a real page in that context for the length of the probe: Playwright's `context.on("page")` fires, init scripts and route handlers apply to it, and it is closed when the probe ends.
 
 ## Existing Pages
 
@@ -174,7 +175,7 @@ with sync_playwright() as p:
     input("Botprint can attach to http://127.0.0.1:9333. Press Enter to quit.")
 ```
 
-Use the headless mode and browser binary that the environment under investigation really runs. Playwright's default `chromium` is the headless shell (reports `HeadlessChrome`); `channel: "chromium"` runs new headless mode (reports `Chrome`).
+Use the headless mode and browser binary that the environment under investigation really runs. Playwright's default `chromium` is the headless shell; `channel: "chromium"` runs new headless mode. Both report `HeadlessChrome` in the user agent; only the shell also drops `window.chrome`, the PDF viewer plugins, and the outer window size.
 
 ## Commands
 
@@ -202,12 +203,12 @@ Use the headless mode and browser binary that the environment under investigatio
 
 ## Output Contract
 
-Profile JSON and compare JSON are the stable surfaces for scripts and agents. Markdown and `explain` output are prose. The contract, finding IDs, warning IDs, and category glossary are documented in [`docs/agent-usage.md`](docs/agent-usage.md). Drop-in agent presets (a Claude Code skill and an `AGENTS.md` snippet) live in [`agent-presets/`](agent-presets).
+Profile JSON and compare JSON are the stable surfaces for scripts and agents. Markdown and `explain` output are prose. Profiles from an older `schema_version` fail validation with a hint to regenerate, so re-collect baselines with the Botprint version that compares them. The contract, finding IDs, warning IDs, and category glossary are documented in [`docs/agent-usage.md`](docs/agent-usage.md). Drop-in agent presets (a Claude Code skill and an `AGENTS.md` snippet) live in [`agent-presets/`](agent-presets).
 
 ## Validated On
 
 - Linux x64: Chromium headless, Playwright Chromium headless shell (source run and compiled binary)
-- macOS: Google Chrome headed, Playwright Chromium, Docker Chrome via `chromedp/headless-shell`
+- macOS arm64: Google Chrome new headless (source run and compiled binary); headed Chrome, Playwright Chromium, and Docker Chrome via `chromedp/headless-shell` last checked on v0.1
 
 Not yet validated: Windows binary, remote authenticated `wss://` CDP endpoints.
 

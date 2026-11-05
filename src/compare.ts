@@ -138,14 +138,32 @@ function collectWarnings(baseline: BotprintProfile, candidate: BotprintProfile):
     });
   }
 
-  if (baselineProduct.headless !== candidateProduct.headless) {
+  // The CDP product says "HeadlessChrome" only for the headless shell; new headless mode reports
+  // "Chrome" there while still reporting HeadlessChrome in the user agent. Check both.
+  const baselineUserAgent = baseline.signals.identity.user_agent;
+  const candidateUserAgent = candidate.signals.identity.user_agent;
+  const shellMismatch = baselineProduct.headless !== candidateProduct.headless;
+  const userAgentMismatch = baselineUserAgent !== candidateUserAgent && parseUserAgent(baselineUserAgent).headless !== parseUserAgent(candidateUserAgent).headless;
+  if (shellMismatch || userAgentMismatch) {
+    const text = shellMismatch
+      ? {
+          summary: "One profile came from the headless shell binary and the other from a headed or new-headless build.",
+          implications:
+            "Plugin counts, window.chrome, outer window size, and notification permission change with the headless shell; the user agent changes only against a headed build. Treat those diffs as mode differences unless the environments are meant to match.",
+        }
+      : {
+          summary: "One profile came from a headless browser and the other from a headed one.",
+          implications:
+            "Both Chromium headless modes report HeadlessChrome in the user agent while the CDP product still says Chrome. Treat the user agent diff as a mode difference unless the environments are meant to match.",
+        };
     warnings.push({
       id: "comparison.headless_mode_mismatch",
-      summary: "One profile came from a headless-shell build and the other from a headed or new-headless build.",
-      implications: "Plugin counts, window.chrome, outer window size, notification permission, and the HeadlessChrome user agent all change with headless mode. Treat those diffs as mode differences unless the environments are meant to match.",
+      ...text,
       evidence: {
         baseline_product: baseline.signals.cdp.product,
         candidate_product: candidate.signals.cdp.product,
+        baseline_user_agent: baselineUserAgent,
+        candidate_user_agent: candidateUserAgent,
       },
     });
   }
@@ -199,7 +217,7 @@ function collectDiffs(baseline: BotprintProfile, candidate: BotprintProfile): Pr
   addDiff(
     diffs,
     advisory("identity.user_agent_changed", "identity", "signals.identity.user_agent", b.identity.user_agent, c.identity.user_agent, "User agent changed"),
-    (left, right) => sameUserAgent(String(left), String(right)),
+    sameUserAgentValue,
   );
   addDiff(diffs, advisory("identity.user_agent_data_changed", "identity", "signals.identity.user_agent_data", b.identity.user_agent_data, c.identity.user_agent_data, "Client hint brands or platform changed"));
   addDiff(diffs, advisory("identity.platform_changed", "identity", "signals.identity.platform", b.identity.platform, c.identity.platform, "Platform changed"));
@@ -242,6 +260,7 @@ function collectDiffs(baseline: BotprintProfile, candidate: BotprintProfile): Pr
   if (b.http?.status === "captured" && c.http?.status === "captured") {
     for (const name of sortedKeys(b.http.request_headers, c.http.request_headers)) {
       const level: DiffLevel = name === "accept-language" ? "material" : "advisory";
+      const equal = name === "user-agent" ? sameUserAgentValue : sameValue;
       addDiff(diffs, {
         id: `http.header.${name}_changed`,
         category: "http",
@@ -250,7 +269,7 @@ function collectDiffs(baseline: BotprintProfile, candidate: BotprintProfile): Pr
         baseline: b.http.request_headers[name],
         candidate: c.http.request_headers[name],
         summary: `Request header ${name} changed`,
-      });
+      }, equal);
     }
   }
 
@@ -308,6 +327,8 @@ function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   return JSON.stringify(left) === JSON.stringify(right);
 }
+
+const sameUserAgentValue = (left: unknown, right: unknown): boolean => sameUserAgent(String(left), String(right));
 
 function sameUserAgent(left: string, right: string): boolean {
   if (left === right) return true;

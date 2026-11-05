@@ -80,7 +80,7 @@ const RULES: FindingRule[] = [
         explanation: "The user agent string and/or the Sec-CH-UA client hint brands advertise a headless browser build.",
         likely_implications: "Sites can distinguish this browser from a normal desktop browser from the first request, before any script runs.",
         suggested_investigation:
-          "Chrome's headless shell (`--headless=old`, Playwright's default chromium_headless_shell) reports HeadlessChrome; new headless mode (`--headless=new`, or Playwright's `channel: 'chromium'`) reports Chrome. Check which headless mode and binary each environment launches.",
+          "Both Chromium headless modes report HeadlessChrome in the user agent: the headless shell (Playwright's default chromium_headless_shell) and new headless mode (`--headless=new`, Playwright's `channel: 'chromium'`). Only a headed browser reports Chrome. Client hint brands name HeadlessChrome only for the headless shell. Confirm whether this environment is meant to run headless and whether the baseline does.",
       };
     },
   },
@@ -109,7 +109,7 @@ const RULES: FindingRule[] = [
         category: "identity",
         title: "Plugin list is empty",
         evidence: ["navigator.plugins.length is 0."],
-        explanation: "Headed Chrome exposes a fixed set of PDF viewer plugins; headless builds expose none.",
+        explanation: "Headed Chrome and new headless mode expose a fixed set of PDF viewer plugins; the headless shell exposes none.",
         likely_implications: "This may help explain differences between local, Docker, CI, and remote-browser profiles.",
         suggested_investigation: "Compare the same signal across the baseline browser and the candidate browser before treating it as material.",
       };
@@ -293,8 +293,8 @@ const RULES: FindingRule[] = [
         category: "permissions",
         title: "Notification permission is denied by default",
         evidence: ["Notification.permission is denied on a fresh page."],
-        explanation: "A fresh headed Chrome profile reports Notification.permission as default (prompt). Headless Chrome reports denied without any user interaction.",
-        likely_implications: "This is a well-known headless indicator, and notification-dependent features will not prompt.",
+        explanation: "Headed Chrome and new headless mode report Notification.permission as default (prompt). The headless shell reports denied without any user interaction.",
+        likely_implications: "This distinguishes the headless shell from a headed browser, and notification-dependent features will not prompt.",
         suggested_investigation: "Confirm the headless mode in use, or whether a policy or context option denies notifications in the candidate environment.",
       };
     },

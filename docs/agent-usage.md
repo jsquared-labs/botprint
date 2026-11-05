@@ -61,8 +61,8 @@ Severity values: `high_confidence_automation_signal`, `compatibility_risk`, `war
 | `automation.webdriver_exposed` | high confidence | `--enable-automation`, passed by default by Puppeteer and Playwright, always by Selenium. |
 | `automation.common_globals_present` | high confidence | ChromeDriver (`cdc_*`), legacy headless stacks. |
 | `automation.chrome_object_missing` | notable | Headless shell binary (Playwright's default `chromium`) rather than new headless mode. |
-| `identity.headless_user_agent` | warning | Headless shell or `--headless=old`; new headless reports `Chrome`. |
-| `identity.empty_plugins` | notable | Headless builds expose no PDF viewer plugins. |
+| `identity.headless_user_agent` | warning | Any Chromium headless mode; the headless shell and `--headless=new` both report `HeadlessChrome`. Only a headed browser reports `Chrome`. |
+| `identity.empty_plugins` | notable | The headless shell exposes no PDF viewer plugins; headed and new headless expose a fixed set. |
 | `environment.default_viewport` | notable | No viewport configured; Chromium default is 800x600. |
 | `environment.zero_outer_window` | notable | Headless shell reports no window. |
 | `rendering.swiftshader_webgl` | warning | No GPU, Docker, CI, or `--disable-gpu`. |
@@ -73,7 +73,7 @@ Severity values: `high_confidence_automation_signal`, `compatibility_risk`, `war
 | `storage.cookies_disabled` | compatibility risk | Cookies disabled by policy or context option. |
 | `storage.indexeddb_unavailable` | compatibility risk / notable | Storage policy or restricted origin; `timeout` means the probe hit `--probe-timeout`. |
 | `permissions.unexpected_permissions_behavior` | notable | Permissions API query errored. |
-| `permissions.notifications_denied` | notable | Headless Chrome reports `Notification.permission` as denied. |
+| `permissions.notifications_denied` | notable | The headless shell reports `Notification.permission` as denied; headed and new headless report prompt. |
 | `webrtc.host_candidate_error` | notable | WebRTC blocked by policy or sandboxing; `timeout` means the probe hit `--probe-timeout`. |
 | `http.accept_language_missing` | warning | No locale configured (headless shell, minimal containers). Set Playwright `locale` or `--lang`. |
 
@@ -84,7 +84,7 @@ Diff `level` and `verdict.level`: `advisory`, `material`, `high_confidence_autom
 Warnings never change the verdict or exit code. They tell you how much to trust the diffs:
 
 - `comparison.browser_binary_mismatch`: different binary families or majors two or more apart. Diffs may be binary artifacts.
-- `comparison.headless_mode_mismatch`: one profile is from a headless-shell build and the other is not. Plugins, `window.chrome`, outer window, notifications, and the UA all change with mode.
+- `comparison.headless_mode_mismatch`: one profile is headless and the other is not, judged from the CDP product and the user agent. When the headless shell is involved, plugins, `window.chrome`, outer window, and notifications change too; with new headless mode only the user agent does.
 - `comparison.probe_context_mismatch`: one profile is a fresh page, the other an existing target.
 - `comparison.browser_context_mismatch`: one profile measured a page-target context and the other the browser default context. Locale, timezone, viewport, and permission diffs may be context configuration.
 - `comparison.http_not_captured`: headers exist on only one side; header diffs are skipped.

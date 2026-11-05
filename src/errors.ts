@@ -9,3 +9,7 @@ export class BotprintError extends Error {
     this.exitCode = exitCode;
   }
 }
+
+export function errorDetail(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

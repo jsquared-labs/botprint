@@ -31,7 +31,7 @@ _Showing top 5 of 9 findings. Use `--json` for the full finding list._
 
 ## Suggested Investigation
 - Check browser policy, incognito-like modes, and origin/storage restrictions in the candidate environment.
-- Chrome's headless shell (`--headless=old`, Playwright's default chromium_headless_shell) reports HeadlessChrome; new headless mode (`--headless=new`, or Playwright's `channel: 'chromium'`) reports Chrome. Check which headless mode and binary each environment launches.
+- Both Chromium headless modes report HeadlessChrome in the user agent: the headless shell (Playwright's default chromium_headless_shell) and new headless mode (`--headless=new`, Playwright's `channel: 'chromium'`). Only a headed browser reports Chrome. Client hint brands name HeadlessChrome only for the headless shell. Confirm whether this environment is meant to run headless and whether the baseline does.
 - Software rendering is normal in headless, Docker, and CI without a GPU, and is forced by --disable-gpu. Check the launch flags and whether a GPU is available in the candidate environment.
 - Check the container or CI image for installed fonts (for example `fc-list`). Minimal Docker images frequently ship none.
 - Set a locale on the context (Playwright `locale`, Puppeteer `--lang`/`--accept-lang`) or in the container environment, matching the baseline.

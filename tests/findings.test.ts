@@ -138,4 +138,16 @@ describe("analyzeProfile", () => {
     ]);
   });
 
+  test("flags the headless user agent alone for new headless mode", () => {
+    // Observed on Chrome 156 --headless=new: HeadlessChrome UA, Chrome CDP product, window.chrome present,
+    // non-zero outer window, Notification.permission prompt, plain Chromium client hint brands.
+    const profile = sampleProfile({
+      identity: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36" },
+      cdp: { product: "Chrome/156.0.8078.80" },
+    });
+
+    const findings = analyzeProfile(profile);
+    expect(findings.map((finding) => finding.id)).toEqual(["identity.headless_user_agent"]);
+    expect(findings[0]?.evidence).toEqual(["User agent reports HeadlessChrome/156."]);
+  });
 });
