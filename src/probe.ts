@@ -4,6 +4,7 @@ import type { BrowserVersion, CdpClient } from "./cdp";
 import { booleanOrNull, isObject, numberValue, stringArray, stringValue } from "./coerce";
 
 export const DEFAULT_PROBE_TIMEOUT_MS = 2_000;
+export const SPEECH_VOICES_WAIT_MS = 500;
 
 // Fonts are checked by name against three generic fallback families; a font counts as
 // detected when its rendered width differs from every fallback. The list mixes common
@@ -46,6 +47,7 @@ export function buildProbeExpression(timeoutMs: number): string {
   const timeout = Number.isSafeInteger(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_PROBE_TIMEOUT_MS;
   return `(() => {
   const PROBE_TIMEOUT_MS = ${timeout};
+  const SPEECH_VOICES_WAIT_MS = ${SPEECH_VOICES_WAIT_MS};
   const FONT_LIST = ${JSON.stringify(FONT_CHECK_LIST)};
 
   const availability = (fn) => {
@@ -278,9 +280,12 @@ export function buildProbeExpression(timeoutMs: number): string {
       try {
         pc = new Ctor({ iceServers: [] });
         pc.createDataChannel("__botprint_probe__");
+        // Resolve on the first candidate: the question is whether host candidates are gathered
+        // at all, and Chromium can hold iceGatheringState at "gathering" for seconds afterwards.
         pc.onicecandidate = (event) => {
           if (event.candidate) {
             candidateCount += 1;
+            resolve("present");
           } else {
             resolve(candidateCount > 0 ? "present" : "absent");
           }
@@ -346,15 +351,39 @@ export function buildProbeExpression(timeoutMs: number): string {
     permissions.notification_api = notificationApiPermission();
   };
 
-  const speechVoicesCount = () => {
-    try {
-      return typeof speechSynthesis !== "undefined" ? speechSynthesis.getVoices().length : 0;
-    } catch {
-      return 0;
+  // Chromium loads speech voices asynchronously: the first getVoices() call can return an
+  // empty list and fire voiceschanged shortly after. Wait for that event, bounded so headless
+  // environments with no voices do not stall the probe.
+  const speechVoicesCount = () => new Promise((resolve) => {
+    if (typeof speechSynthesis === "undefined" || typeof speechSynthesis.getVoices !== "function") {
+      resolve(0);
+      return;
     }
-  };
+    try {
+      const initial = speechSynthesis.getVoices().length;
+      if (initial > 0) {
+        resolve(initial);
+        return;
+      }
+      let settled = false;
+      const finish = () => {
+        if (!settled) {
+          settled = true;
+          try {
+            resolve(speechSynthesis.getVoices().length);
+          } catch {
+            resolve(0);
+          }
+        }
+      };
+      speechSynthesis.addEventListener("voiceschanged", finish, { once: true });
+      setTimeout(finish, Math.min(PROBE_TIMEOUT_MS, SPEECH_VOICES_WAIT_MS));
+    } catch {
+      resolve(0);
+    }
+  });
 
-  return Promise.all([indexedDbAvailable(), collectPermissions(), webrtcSignals(), audioSignals()]).then(([indexedDb, _permissions, webrtc, audio]) => ({
+  return Promise.all([indexedDbAvailable(), collectPermissions(), webrtcSignals(), audioSignals(), speechVoicesCount()]).then(([indexedDb, _permissions, webrtc, audio, speechVoices]) => ({
     userAgent: navigator.userAgent,
     userAgentData: userAgentData(),
     platform: navigator.platform,
@@ -383,7 +412,7 @@ export function buildProbeExpression(timeoutMs: number): string {
     },
     hardwareConcurrency: typeof navigator.hardwareConcurrency === "number" ? navigator.hardwareConcurrency : 0,
     deviceMemory: typeof navigator.deviceMemory === "number" ? navigator.deviceMemory : null,
-    speechVoicesCount: speechVoicesCount(),
+    speechVoicesCount: speechVoices,
     pluginsCount: navigator.plugins ? navigator.plugins.length : 0,
     mimeTypesCount: navigator.mimeTypes ? navigator.mimeTypes.length : 0,
     cookiesEnabled: navigator.cookieEnabled === true,
