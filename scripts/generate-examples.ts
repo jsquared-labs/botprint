@@ -15,11 +15,14 @@ const local = profile({
   targetUrl: "http://127.0.0.1:45001/",
   timezone: "America/New_York",
   viewport: { width: 1440, height: 900, device_scale_factor: 2 },
-  screen: { width: 1440, height: 900, avail_width: 1440, avail_height: 875 },
+  outerWindow: { width: 1440, height: 980 },
+  screen: { width: 1440, height: 900, avail_width: 1440, avail_height: 875, color_depth: 30 },
   hardwareConcurrency: 8,
   deviceMemory: 8,
   webglRenderer: "ANGLE Metal Renderer: Synthetic GPU",
   canvasHash: "synthetic-local-canvas",
+  fonts: ["Arial", "Courier New", "Georgia", "Helvetica", "Helvetica Neue", "Menlo", "Monaco", "Times New Roman", "Verdana"],
+  acceptLanguage: "en-US,en;q=0.9",
 });
 
 const docker = profile({
@@ -28,11 +31,17 @@ const docker = profile({
   targetUrl: "http://host.docker.internal:45002/",
   timezone: "UTC",
   viewport: { width: 1280, height: 720, device_scale_factor: 1 },
-  screen: { width: 1280, height: 720, avail_width: 1280, avail_height: 720 },
+  outerWindow: { width: 0, height: 0 },
+  screen: { width: 1280, height: 720, avail_width: 1280, avail_height: 720, color_depth: 24 },
   hardwareConcurrency: 4,
   deviceMemory: null,
   webglRenderer: "SwiftShader Device (Synthetic)",
   canvasHash: "synthetic-docker-canvas",
+  fonts: [],
+  acceptLanguage: undefined,
+  pluginsCount: 0,
+  chromeObject: false,
+  notificationApi: "denied",
   storage: {
     cookies_enabled: true,
     local_storage: "available",
@@ -59,11 +68,14 @@ const existingTarget = profile({
   probeWarnings: ["page-contamination-possible"],
   timezone: "America/New_York",
   viewport: { width: 1440, height: 900, device_scale_factor: 2 },
-  screen: { width: 1440, height: 900, avail_width: 1440, avail_height: 875 },
+  outerWindow: { width: 1440, height: 980 },
+  screen: { width: 1440, height: 900, avail_width: 1440, avail_height: 875, color_depth: 30 },
   hardwareConcurrency: 8,
   deviceMemory: 8,
   webglRenderer: "ANGLE Metal Renderer: Synthetic GPU",
   canvasHash: "synthetic-site-canvas",
+  fonts: ["Arial", "Courier New", "Georgia", "Helvetica", "Helvetica Neue", "Menlo", "Monaco", "Times New Roman", "Verdana"],
+  acceptLanguage: "en-US,en;q=0.9",
   storage: {
     cookies_enabled: true,
     local_storage: "error",
@@ -125,9 +137,7 @@ These fixtures are generated with \`bun run examples:generate\`. They are determ
 - \`*.compare.md\`: Markdown compare reports.
 - \`*.agent.md\`: compact agent explanations from compare JSON.
 
-## Product Boundary
-
-These examples are for understanding Botprint output and testing parsers. They are not examples of stealth, anti-detect configuration, or browser imitation.
+These examples exist for understanding Botprint output and testing parsers.
 `,
 );
 
@@ -139,11 +149,17 @@ type ProfileInput = {
   targetUrl: string;
   timezone: string;
   viewport: BotprintProfile["signals"]["environment"]["viewport"];
+  outerWindow: BotprintProfile["signals"]["environment"]["outer_window"];
   screen: BotprintProfile["signals"]["environment"]["screen"];
   hardwareConcurrency: number;
   deviceMemory: number | null;
   webglRenderer: string;
   canvasHash: string;
+  fonts: string[];
+  acceptLanguage: string | undefined;
+  pluginsCount?: number;
+  chromeObject?: boolean;
+  notificationApi?: BotprintProfile["signals"]["permissions"][string];
   cdpProduct?: string;
   probeContext?: BotprintProfile["source"]["probe_context"];
   targetId?: string;
@@ -164,7 +180,27 @@ function deterministicCompare(input: CompareInput): CompareResult {
 }
 
 function profile(input: ProfileInput): BotprintProfile {
-  return validateProfile({
+  const probeContext = input.probeContext ?? "local-diagnostic-page";
+  const family = input.browserVersion.split("/")[0] ?? "Chrome";
+  const version = input.browserVersion.split("/")[1] ?? "147.0.0.0";
+  const major = version.split(".")[0] ?? "147";
+  const userAgent = `Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) ${family}/${version} Safari/537.36`;
+  const requestHeaders: Record<string, string> = {
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "sec-ch-ua": `"${family}";v="${major}", "Chromium";v="${major}", "Not_A Brand";v="8"`,
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Synthetic"',
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "none",
+    "upgrade-insecure-requests": "1",
+    "user-agent": userAgent,
+  };
+  if (input.acceptLanguage !== undefined) {
+    requestHeaders["accept-language"] = input.acceptLanguage;
+  }
+  const draft = validateProfile({
     schema_version: SCHEMA_VERSION,
     botprint_version: BOTPRINT_VERSION,
     created_at: CREATED_AT,
@@ -173,21 +209,36 @@ function profile(input: ProfileInput): BotprintProfile {
       cdp_endpoint_kind: "http",
       browser_version: input.browserVersion,
       target_url: input.targetUrl,
-      probe_context: input.probeContext ?? "local-diagnostic-page",
+      probe_context: probeContext,
+      browser_context_id: "SYNTHETIC_CONTEXT_1",
+      browser_context_source: probeContext === "local-diagnostic-page" ? "page-target" : undefined,
       target_id: input.targetId,
       target_type: input.targetType,
+      probe_timeout_ms: 2000,
       probe_warnings: input.probeWarnings,
     },
     signals: {
       identity: {
-        user_agent: `Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/${input.browserVersion.split("/")[1] ?? "147.0.0.0"} Safari/537.36`,
+        user_agent: userAgent,
+        user_agent_data: {
+          brands: [
+            { brand: family, version: major },
+            { brand: "Chromium", version: major },
+            { brand: "Not_A Brand", version: "8" },
+          ],
+          mobile: false,
+          platform: "Synthetic",
+        },
         platform: "SyntheticPlatform",
+        language: "en-US",
         languages: ["en-US", "en"],
-        plugins_count: 3,
-        mime_types_count: 2,
+        plugins_count: input.pluginsCount ?? 3,
+        mime_types_count: input.pluginsCount === 0 ? 0 : 2,
+        pdf_viewer_enabled: (input.pluginsCount ?? 3) > 0,
       },
       automation: {
         webdriver: false,
+        chrome_object: input.chromeObject ?? true,
         globals: {
           "cdc_*": false,
           "__webdriver_*": false,
@@ -201,9 +252,11 @@ function profile(input: ProfileInput): BotprintProfile {
       environment: {
         timezone: input.timezone,
         viewport: input.viewport,
+        outer_window: input.outerWindow,
         screen: input.screen,
         hardware_concurrency: input.hardwareConcurrency,
         device_memory: input.deviceMemory,
+        speech_voices_count: input.fonts.length > 0 ? 12 : 0,
       },
       rendering: {
         webgl: {
@@ -217,6 +270,15 @@ function profile(input: ProfileInput): BotprintProfile {
           status: "stable",
           hash: input.canvasHash,
         },
+        audio: {
+          status: "available",
+          hash: `${input.canvasHash}-audio`,
+        },
+        fonts: {
+          status: "available",
+          checked: 31,
+          detected: input.fonts,
+        },
       },
       storage: input.storage ?? {
         cookies_enabled: true,
@@ -225,25 +287,31 @@ function profile(input: ProfileInput): BotprintProfile {
         indexed_db: "available",
         service_worker: "available",
       },
-      permissions: input.permissions ?? {
-        geolocation: "prompt",
-        notifications: "prompt",
-        camera: "prompt",
-        microphone: "prompt",
+      permissions: {
+        ...(input.permissions ?? {
+          geolocation: "prompt",
+          notifications: "prompt",
+          camera: "prompt",
+          microphone: "prompt",
+        }),
+        notification_api: input.notificationApi ?? "prompt",
       },
       webrtc: {
         api_available: true,
         host_candidate_gathering: "absent",
         candidate_count: 0,
       },
+      http: probeContext === "local-diagnostic-page" ? { status: "captured", request_headers: requestHeaders } : undefined,
       cdp: {
         product: input.cdpProduct ?? input.browserVersion,
         protocol_version: "1.3",
-        user_agent: `Synthetic CDP UA ${input.browserVersion}`,
+        user_agent: userAgent,
       },
     },
     findings: [],
   });
+  draft.findings = analyzeProfile(draft);
+  return draft;
 }
 
 async function writeProfile(name: string, value: BotprintProfile): Promise<void> {

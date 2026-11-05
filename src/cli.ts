@@ -23,9 +23,11 @@ type ParsedCommand =
         quiet: boolean;
         label: string | undefined;
         timeout: number | undefined;
+        probeTimeout: number | undefined;
         authHeaders: string[];
         diagnosticBind: string | undefined;
         diagnosticHost: string | undefined;
+        context: string | undefined;
         target: string | undefined;
         targetUrl: string | undefined;
       };
@@ -105,7 +107,9 @@ const FLAG_SPEC: Record<string, { takesValue: boolean }> = {
   markdown: { takesValue: true },
   label: { takesValue: true },
   timeout: { takesValue: true },
+  "probe-timeout": { takesValue: true },
   "auth-header": { takesValue: true },
+  context: { takesValue: true },
   "diagnostic-bind": { takesValue: true },
   "diagnostic-host": { takesValue: true },
   target: { takesValue: true },
@@ -116,7 +120,7 @@ const FLAG_SPEC: Record<string, { takesValue: boolean }> = {
   help: { takesValue: false },
 };
 
-const RUN_FLAGS = new Set(["auth-header", "cdp", "diagnostic-bind", "diagnostic-host", "json", "label", "out", "quiet", "target", "target-url", "timeout"]);
+const RUN_FLAGS = new Set(["auth-header", "cdp", "context", "diagnostic-bind", "diagnostic-host", "json", "label", "out", "probe-timeout", "quiet", "target", "target-url", "timeout"]);
 const TARGETS_FLAGS = new Set(["auth-header", "cdp", "json", "quiet", "timeout"]);
 const REPORT_FLAGS = new Set(["json", "markdown", "quiet"]);
 const COMPARE_FLAGS = new Set(["json", "markdown", "quiet"]);
@@ -176,14 +180,18 @@ export function renderHelp(topic?: CommandName): string {
       "Usage: botprint run --cdp <url> --out <profile.json> [options]",
       "",
       "Collect a browser-visible profile from an existing CDP endpoint.",
-      "Default: creates a fresh diagnostic page. Use --target to evaluate an existing page target.",
+      "Default: creates a fresh diagnostic page inside the browser context of the first open page target,",
+      "so framework context options (locale, timezone, viewport, permissions) are measured.",
+      "Use --target to evaluate an existing page target in place.",
       "",
       "Options:",
       "  --cdp <url>              CDP HTTP, WS, or WSS endpoint.",
       "  --out <path>             Profile JSON output path.",
       "  --label <name>           Label stored in source.label and report headings.",
-      "  --timeout <ms>           Operation timeout in milliseconds.",
+      "  --timeout <ms>           CDP operation timeout in milliseconds. Default: 10000.",
+      "  --probe-timeout <ms>     Per-check timeout inside the browser probe (IndexedDB, WebRTC, audio). Default: 2000.",
       "  --auth-header <header>   Extra header for remote CDP endpoints. Repeatable.",
+      "  --context <id|default>   Browser context for the fresh page: a browserContextId from `targets --json`, or `default`.",
       "  --diagnostic-bind <addr> Interface for Botprint's diagnostic page. Default: 127.0.0.1.",
       "  --diagnostic-host <host> Hostname the browser uses to reach the diagnostic page (e.g. host.docker.internal).",
       "  --target <targetId>      Existing CDP page target to evaluate without closing or navigating it.",
@@ -317,6 +325,10 @@ async function runCommand(command: Exclude<ParsedCommand, { command: "help" }>, 
         io.log(`Wrote Botprint profile to ${command.options.out}`);
         io.log(`Browser: ${profile.source.browser_version || "unknown"}`);
         io.log(`Target: ${profile.source.target_url}`);
+        io.log(`Findings: ${profile.findings.length}${profile.findings.length > 0 ? ` (${profile.findings.map((finding) => finding.id).join(", ")})` : ""}`);
+        for (const warning of profile.source.probe_warnings ?? []) {
+          io.log(`Note: ${warning}`);
+        }
       }
       return EXIT_CODES.success;
     }
@@ -406,13 +418,19 @@ function parseRun(flags: FlagValues): ParseResult {
 
   const timeout = optionalPositiveInteger(flags, "timeout");
   if (!timeout.ok) return timeout;
+  const probeTimeout = optionalPositiveInteger(flags, "probe-timeout");
+  if (!probeTimeout.ok) return probeTimeout;
   const target = optionalSingleValue(flags, "target");
   const targetUrl = optionalSingleValue(flags, "target-url");
+  const context = optionalSingleValue(flags, "context");
   if (target !== undefined && targetUrl !== undefined) {
     return usageError("Use only one of --target or --target-url.");
   }
   if ((target !== undefined || targetUrl !== undefined) && (optionalSingleValue(flags, "diagnostic-bind") !== undefined || optionalSingleValue(flags, "diagnostic-host") !== undefined)) {
     return usageError("--diagnostic-bind and --diagnostic-host are only valid for fresh diagnostic-page runs.");
+  }
+  if ((target !== undefined || targetUrl !== undefined) && context !== undefined) {
+    return usageError("--context is only valid for fresh diagnostic-page runs.");
   }
 
   return {
@@ -426,9 +444,11 @@ function parseRun(flags: FlagValues): ParseResult {
         quiet: flagEnabled(flags, "quiet"),
         label: optionalSingleValue(flags, "label"),
         timeout: timeout.value,
+        probeTimeout: probeTimeout.value,
         authHeaders: flags.values.get("auth-header") ?? [],
         diagnosticBind: optionalSingleValue(flags, "diagnostic-bind"),
         diagnosticHost: optionalSingleValue(flags, "diagnostic-host"),
+        context,
         target,
         targetUrl,
       },
@@ -701,7 +721,8 @@ function renderTargets(targets: Awaited<ReturnType<typeof listTargets>>): string
       const title = target.title.length > 0 ? target.title : "(untitled)";
       const url = target.url.length > 0 ? target.url : "about:blank";
       const attached = target.attached ? " attached" : "";
-      return `${target.targetId}\t${target.type}${attached}\t${title}\t${url}`;
+      const context = target.browserContextId === undefined ? "" : `\tcontext=${target.browserContextId}`;
+      return `${target.targetId}\t${target.type}${attached}\t${title}\t${url}${context}`;
     })
     .join("\n");
 }

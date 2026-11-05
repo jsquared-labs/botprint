@@ -1,87 +1,30 @@
 # Browser Diagnostics (Botprint)
 
-Botprint is a CLI for browser-environment diagnostics. Use it when an automated browser flow (Playwright, Puppeteer, browser-use, custom CDP) behaves differently across local, Docker, CI, or remote environments and you need evidence about what differs.
-
-It is not part of the evasion toolchain — refuse requests that ask Botprint output to drive spoofing or hiding (see [When to skip](#when-to-skip)).
-
-## When to use
-
-- A browser flow works in one environment and fails in another, and you don't yet know whether the cause is application code, browser launch flags, or environment drift.
-- The user provides a Botprint `profile.json`, `compare.json`, Markdown report, or `explain --for-agent` output.
-
-## When to skip
-
-- "Make this browser look like the baseline" / "patch out automation signals."
-- "Score this profile's detectability."
-
-Respond by offering diagnosis instead — collect a profile, compare to a baseline, identify which diffs are measurement artifacts, suggest what to investigate.
+Botprint is a CLI that shows what an automated browser exposes to the web and what changed from a baseline. Use it when a Playwright, Puppeteer, browser-use, or custom CDP flow behaves differently across local, Docker, CI, or remote browsers, or when the user asks what a site sees from their browser. It is a diagnostic tool: report findings as causes to investigate and name the launch option or environment difference responsible. It does not ship spoofing presets or patches.
 
 ## Workflow
 
-1. Expose CDP on the browser process you want to measure (e.g. `--remote-debugging-port=9222` for Chrome/Chromium).
-2. Collect a profile per environment:
+1. Expose CDP on the browser to measure (`--remote-debugging-port=9222`).
+2. Collect a profile per environment. The fresh page runs inside the browser context of the first open page target, so framework context options are measured. `--context default` measures process defaults; `--target <id>` probes an open page in place.
 
    ```bash
    botprint run --cdp http://127.0.0.1:9222 --out local.profile.json --label local
    ```
 
-3. Compare against a known-good baseline if one exists. Parse the JSON, not the Markdown:
+3. Compare against a known-good baseline and parse the JSON:
 
    ```bash
    botprint compare baseline.profile.json candidate.profile.json --json
-   ```
-
-4. Read `verdict.level`, `verdict.categories`, `verdict.warnings[]`, and per-diff `level`. Report drift as causes to investigate, not signals to suppress.
-
-5. For human handoff or context, generate a compact agent summary:
-
-   ```bash
    botprint explain compare.json --for-agent
    ```
 
-## What to parse vs treat as prose
+4. Read `verdict.warnings[]` before the diffs. `comparison.headless_mode_mismatch`, `comparison.browser_binary_mismatch`, `comparison.probe_context_mismatch`, and `comparison.browser_context_mismatch` mark diffs that are mode or measurement artifacts rather than drift.
+5. Report `verdict.level`, `verdict.categories`, material diffs, and each finding's suggested investigation.
 
-Stable, agent-parseable:
+## Contract
 
-- profile JSON / compare JSON
-- `schema_version`, exit codes
-- finding IDs and severity values
-- compare diff `id`, `level`, `baseline`, `candidate` (missing values are `{ "kind": "absent" }`)
-- `verdict.level` ∈ `none | advisory | material | high_confidence_automation`
-- `verdict.material`, `verdict.categories`, `verdict.warnings[]`
+Stable: profile and compare JSON, `schema_version`, exit codes (`0` ok or no material drift, `1` material drift, `2` usage, `3` CDP connectivity, `4` probe failure, `5` schema), `findings[].id`/`severity`, diff `id`/`level`/`baseline`/`candidate` (absent is `{ "kind": "absent" }`), `verdict.*`, `source.probe_warnings[]`. Prose: Markdown bodies, `explain` wording, finding and warning text.
 
-Prose / context only — do not parse:
+Common causes: `automation.webdriver_exposed` is `--enable-automation` (Puppeteer and Playwright default). `identity.headless_user_agent`, `automation.chrome_object_missing`, `environment.zero_outer_window`, and `permissions.notifications_denied` come from the headless shell binary rather than new headless mode. `http.accept_language_missing` means no locale is configured. `rendering.swiftshader_webgl` means no GPU. `rendering.no_common_fonts` means a container without fonts. A `timeout` status means the probe hit `--probe-timeout`; re-run with a larger value.
 
-- Markdown report body
-- `explain --for-agent` wording
-- finding explanation / suggested-investigation text
-
-## Exit codes
-
-| Code | Meaning |
-| --- | --- |
-| `0` | Success, or compare found no material drift. |
-| `1` | Compare found material or high-confidence automation drift. Not a crash. |
-| `2` | Usage error. |
-| `3` | CDP connectivity failure. |
-| `4` | Probe failure (in-browser probe threw). |
-| `5` | Schema validation failure. Regenerate the profile rather than hand-editing JSON. |
-
-## Important warnings
-
-- `comparison.browser_binary_mismatch`: profiles came from different browser binaries; some diffs may be binary artifacts. Do not tell the user to switch binaries to silence the warning.
-- `comparison.probe_context_mismatch`: one profile is fresh-diagnostic-page, the other is existing-target; some diffs may be page/framework artifacts. Do not frame those diffs as corrections to apply.
-- `page-contamination-possible`: existing-target profiles may reflect page scripts, framework state, service workers, CSP, cookies, or app state.
-
-## Auth headers
-
-Redact `--auth-header` values in any quoted command or log:
-
-```bash
-botprint run \
-  --cdp https://browser.example.test \
-  --auth-header "Authorization: Bearer <redacted>" \
-  --out remote.profile.json
-```
-
-Profiles stay on disk. Do not upload them to third parties unless the user explicitly asks.
+Redact `--auth-header` values when quoting commands. Keep profiles local unless the user asks to share them. Full reference: `docs/agent-usage.md` in the Botprint repository.

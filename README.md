@@ -2,56 +2,86 @@
 
 Botprint shows what your automated browser exposes to the web, and what changed from your baseline.
 
-It is a diagnostic tool — it reports browser-visible signals and compares profiles. It does not generate stealth presets, patches, or detection-bypass guidance.
+It connects to a running Chromium-based browser over the Chrome DevTools Protocol (CDP), runs a probe in a page inside the browser context you are debugging, and writes a schema-versioned JSON profile. Profiles can be rendered as reports, compared against a baseline, and condensed into short explanations for coding agents.
 
-## What It Does
+Botprint is a diagnostic tool. It reports what the browser exposes, what differs between two environments, and which launch option or environment difference is most likely responsible. It does not ship spoofing presets or patches.
 
-Botprint connects to an existing browser through Chrome DevTools Protocol (CDP), runs a browser-visible probe, and writes a schema-versioned JSON profile. It can then render reports, compare profiles, and produce compact agent-friendly explanations.
+Typical questions it answers:
 
-The primary workflow is agented browser debugging: a human or coding agent runs Botprint against the browser context that is failing, compares it with a known-good baseline, and uses structured output to reason about environment drift before changing application code.
+- Why does my Playwright or Puppeteer flow behave differently in Docker or CI than on my laptop?
+- What does the site actually see from this browser agent: user agent, client hints, Accept-Language, timezone, fonts, GPU, storage, permissions?
+- Is this difference real environment drift, or an artifact of how I measured it?
 
-Use Botprint to investigate:
+## Install
 
-- local vs Docker browser drift
-- local vs CI browser drift
-- Playwright, Puppeteer, browser-use, Stagehand, or custom CDP behavior
-- remote browser surprises
-- browser-visible capability differences in storage, rendering, permissions, WebRTC, identity, environment, and automation exposure
+Release binaries (no runtime needed):
 
-## What The Output Looks Like
+```bash
+curl -fsSL https://github.com/oh-meh/botprint/releases/latest/download/botprint-linux-x64 -o botprint
+chmod +x botprint && sudo mv botprint /usr/local/bin/
+```
 
-A single-profile report from one browser context (synthetic Docker example):
+Replace `linux-x64` with `linux-arm64`, `darwin-arm64`, `darwin-x64`, or `windows-x64.exe`.
+
+With [Bun](https://bun.sh):
+
+```bash
+bunx botprint help          # run without installing
+bun install -g botprint     # or install globally
+```
+
+From source:
+
+```bash
+git clone https://github.com/oh-meh/botprint && cd botprint
+bun install && bun run build   # writes dist/botprint
+```
+
+## Quickstart
+
+Start the browser with a CDP port and collect a profile:
+
+```bash
+botprint run --cdp http://127.0.0.1:9222 --out local.profile.json --label local
+```
+
+Compare two environments:
+
+```bash
+botprint compare local.profile.json docker.profile.json          # Markdown summary
+botprint compare local.profile.json docker.profile.json --json   # full diff list
+```
+
+Render a report or a compact explanation:
+
+```bash
+botprint report docker.profile.json
+botprint explain docker.profile.json --for-agent
+```
+
+A profile report looks like this (synthetic Docker example):
 
 ````markdown
 # Botprint Profile: synthetic-docker
 
-## Summary
-- Browser: HeadlessChrome/145.0.0.0
-- Target: http://host.docker.internal:45002/
-- Findings: 2
-
-## Browser Context
-- User agent: Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/145.0.0.0 Safari/537.36
-- Platform: SyntheticPlatform
-- Timezone: UTC
-- Viewport: 1280x720 @ 1
-
 ## Key Signals
-- WebDriver: false
+- WebDriver: false; window.chrome: false
 - WebGL: SwiftShader Device (Synthetic)
-- Canvas: stable
+- Canvas: stable; audio: available
+- Fonts: 0 of 31 common fonts detected
 - Storage: cookies=true, indexedDB=error
+- Accept-Language: (not sent)
 
 ## Top Findings
-- **Software WebGL renderer detected** (warning): Renderer evidence: WebKit WebGL SwiftShader Device (Synthetic).
+_Showing top 5 of 9 findings. Use `--json` for the full finding list._
 - **IndexedDB is unavailable** (compatibility_risk): IndexedDB status is error.
-
-## Suggested Investigation
-- Check whether the candidate ran in headless, Docker, CI, or a GPU-disabled environment.
-- Check browser policy, incognito-like modes, and origin/storage restrictions in the candidate environment.
+- **Browser identifies itself as headless** (warning): User agent reports HeadlessChrome/145. Client hint brands include HeadlessChrome.
+- **Software WebGL renderer detected** (warning): Renderer evidence: WebKit WebGL SwiftShader Device (Synthetic).
+- **No common fonts detected** (warning): None of 31 common fonts rendered differently from the generic fallback families.
+- **No Accept-Language header is sent** (warning): The browser's request for the diagnostic page carried no Accept-Language header.
 ````
 
-Comparing two profiles surfaces drift between environments:
+And a compare:
 
 ````markdown
 # Botprint Compare: synthetic-local -> synthetic-docker
@@ -59,190 +89,105 @@ Comparing two profiles surfaces drift between environments:
 ## Summary
 - Verdict: material
 - Material: yes
-- Differences: 15
-- Categories: cdp, environment, identity, permissions, rendering, storage
-- Warnings: comparison.browser_binary_mismatch
+- Differences: 28
+- Categories: automation, cdp, environment, http, identity, permissions, rendering, storage
+- Warnings: comparison.browser_binary_mismatch, comparison.headless_mode_mismatch
 
 ## Top Differences
-_Showing top 5 of 15 differences. Use `--json` for the full diff list._
+_Showing top 5 of 28 differences. Use `--json` for the full diff list._
+- **window.chrome presence changed** (material): signals.automation.chrome_object true -> false
 - **Timezone changed** (material): signals.environment.timezone "America/New_York" -> "UTC"
 - **WebGL renderer changed** (material): signals.rendering.webgl.unmasked_renderer "ANGLE Metal Renderer: Synthetic GPU" -> "SwiftShader Device (Synthetic)"
+- **Detected font set changed** (material): signals.rendering.fonts.detected ["Arial","Courier New","Georgia","Helvetica","Helvetica Neue","Menlo","Monaco","Times New Roman","Verdana"] -> []
 - **IndexedDB availability changed** (material): signals.storage.indexed_db "available" -> "error"
-- **Service worker availability changed** (material): signals.storage.service_worker "available" -> "unavailable"
-- **User agent changed** (advisory): signals.identity.user_agent "...Chrome/147.0.0.0..." -> "...Chrome/145.0.0.0..."
 ````
 
-The agent-friendly explanation (`explain --for-agent`) condenses the same finding into one paragraph under a 200-word budget. Profile JSON and compare JSON are the stable parsing surfaces; Markdown and agent prose are for humans and LLM context.
+Full synthetic examples live in [`examples/synthetic`](examples/synthetic).
 
-Synthetic deterministic fixtures live in [`examples/synthetic`](examples/synthetic). Regenerate them with `bun run examples:generate`.
+## What It Measures
 
-## Where This Sits
-
-Botprint reads browser-visible signals — the same surface any page script can read about itself. It's introspection, not modification. It doesn't ship spoofs, patches, or evasion recipes, and won't generate them on request.
-
-## Agented Coding Workflows
-
-Botprint is designed to be useful inside Codex, Claude Code, Cursor, and other coding-agent workflows.
-
-Agents should parse JSON and exit codes, not scrape Markdown prose:
-
-- profile JSON for the browser-visible environment
-- compare JSON for baseline drift
-- `verdict.level`, `verdict.categories`, `verdict.warnings[]`, and per-diff `level`
-- `targets --json` when an agent needs a page target ID without parsing table output
-- `explain --for-agent` when a compact human-readable handoff is useful
-
-For local personal use, Botprint can also be wrapped by Codex/Claude skills. See [`docs/agent-usage.md`](docs/agent-usage.md) for the stable contract, refusal boundary, Playwright CDP recipe, and fresh-vs-existing-target guidance.
-
-## Install
-
-Botprint is currently built with Bun.
-
-```bash
-bun install
-bun run check
-bun run build
-```
-
-The compiled binary is written to:
-
-```bash
-dist/botprint
-```
-
-You can also run from source:
-
-```bash
-bun run src/cli.ts help
-```
-
-## Quickstart
-
-Start Chrome or Chromium with a CDP port, then collect a profile:
-
-```bash
-dist/botprint run \
-  --cdp http://127.0.0.1:9222 \
-  --out local.profile.json \
-  --label local
-```
-
-Render a Markdown report:
-
-```bash
-dist/botprint report local.profile.json --markdown local.report.md
-```
-
-Compare two profiles:
-
-```bash
-dist/botprint compare baseline.profile.json candidate.profile.json --json
-```
-
-Generate an agent-friendly explanation:
-
-```bash
-dist/botprint explain candidate.profile.json --for-agent
-```
-
-Use the guided terminal flow:
-
-```bash
-dist/botprint guide
-```
-
-`botprint tui` is an alias for `botprint guide`.
-
-## Commands
-
-| Command | Purpose |
+| Category | Signals |
 | --- | --- |
-| `run` | Collect a profile from an existing CDP endpoint. |
-| `targets` | List existing page targets from a CDP endpoint; use `--json` for scripts and agents. |
-| `report` | Render a Markdown report from a profile. |
-| `compare` | Compare a baseline profile against a candidate profile. |
-| `explain` | Render a compact agent-friendly diagnosis. |
-| `guide` | Run a guided terminal flow over the same commands. |
+| `identity` | user agent, client hint brands/platform/mobile, platform, language and languages, plugin and MIME counts, PDF viewer |
+| `automation` | `navigator.webdriver`, `window.chrome` presence, known automation globals |
+| `environment` | timezone, viewport, outer window size, screen metrics and color depth, hardware concurrency, device memory, speech voice count |
+| `rendering` | WebGL vendor/renderer (masked and unmasked), canvas hash, audio hash, detected common fonts |
+| `storage` | cookies, localStorage, sessionStorage, IndexedDB, service worker |
+| `permissions` | Permissions API states and `Notification.permission` |
+| `webrtc` | API availability and local host-candidate gathering (no STUN) |
+| `http` | request headers the browser sent for the diagnostic page: User-Agent, Accept-Language, Sec-CH-UA client hints, Sec-Fetch, Accept-Encoding |
+| `cdp` | browser product and protocol version |
 
-Command help:
+Findings are generated from these signals with stable IDs. Each finding names the launch option or environment difference that commonly causes it, for example `--enable-automation` for `navigator.webdriver`, or the headless shell binary for a missing `window.chrome`.
+
+## Browser Contexts
+
+Playwright and Puppeteer apply locale, timezone, viewport, permissions, and init scripts per browser context, not per browser. By default `botprint run` creates its fresh diagnostic page inside the browser context of the first open page target, so those options are measured. The profile records which context was used in `source.browser_context_id` and `source.browser_context_source`.
+
+- `--context default` measures the browser's default context instead (process-level defaults only).
+- `--context <id>` picks a specific context; IDs are listed by `botprint targets --cdp ... --json`.
+- If no page is open, the fresh page falls back to the default context and the profile carries the `default-browser-context` note.
+
+## Existing Pages
+
+To measure an already-open page in place, including its scripts, service workers, CSP, and storage state:
 
 ```bash
-dist/botprint help run
-dist/botprint help targets
-dist/botprint help compare
+botprint targets --cdp http://127.0.0.1:9222 --json
+botprint run --cdp http://127.0.0.1:9222 --target <targetId> --out site.profile.json
+botprint run --cdp http://127.0.0.1:9222 --target-url https://app.example.test/ --out site.profile.json
 ```
 
-## Fresh vs. Existing Target
-
-By default, `botprint run` creates a fresh diagnostic page in the browser and runs the probe there. This is cleaner and more repeatable, and it is the best mode for baseline drift.
-
-When you need to measure an already-open page, list targets and run against an explicit target ID:
-
-```bash
-dist/botprint targets --cdp http://127.0.0.1:9222 --json
-
-dist/botprint run \
-  --cdp http://127.0.0.1:9222 \
-  --target <targetId> \
-  --out site.profile.json \
-  --label site
-```
-
-Existing-target profiles can reflect page scripts, framework state, service workers, CSP, cookies, storage state, and app state. Botprint marks these profiles with `source.probe_warnings`.
+These profiles carry the `page-contamination-possible` note, and HTTP headers are not captured in this mode.
 
 ## Docker
 
-When the browser runs outside the host network namespace, the browser may need a host-reachable diagnostic URL:
+When the browser runs in a container, it needs a host-reachable diagnostic URL:
 
 ```bash
-dist/botprint run \
-  --cdp http://127.0.0.1:9334 \
-  --out docker.profile.json \
-  --label docker \
-  --diagnostic-bind 0.0.0.0 \
-  --diagnostic-host host.docker.internal
+botprint run --cdp http://127.0.0.1:9334 --out docker.profile.json --label docker \
+  --diagnostic-bind 0.0.0.0 --diagnostic-host host.docker.internal
 ```
 
-Outside Docker or cross-namespace setups, omit `--diagnostic-bind` and `--diagnostic-host` so the diagnostic page stays bound to `127.0.0.1`.
+Omit both flags otherwise so the diagnostic page stays bound to `127.0.0.1`.
 
 ## Playwright
 
-Expose a CDP port from the browser process you want Botprint to measure:
+Expose CDP from the browser you want to measure:
 
 ```ts
 import { chromium } from "playwright";
 
-const browser = await chromium.launch({
-  headless: true,
-  args: ["--remote-debugging-port=9333"],
-});
-
+const browser = await chromium.launch({ headless: true, args: ["--remote-debugging-port=9333"] });
 const page = await browser.newPage();
 await page.goto("about:blank");
 // Keep the process alive while Botprint connects to http://127.0.0.1:9333.
 ```
 
-Use the headed/headless mode and browser binary that the environment actually runs.
+```python
+from playwright.sync_api import sync_playwright
 
-## Output Contract
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True, args=["--remote-debugging-port=9333"])
+    page = browser.new_context().new_page()
+    page.goto("about:blank")
+    input("Botprint can attach to http://127.0.0.1:9333. Press Enter to quit.")
+```
 
-Botprint's durable artifacts are JSON profiles and compare JSON.
+Use the headless mode and browser binary that the environment under investigation really runs. Playwright's default `chromium` is the headless shell (reports `HeadlessChrome`); `channel: "chromium"` runs new headless mode (reports `Chrome`).
 
-Stable fields for scripts and agents include:
+## Commands
 
-- `schema_version`
-- exit codes
-- profile `source.probe_context`
-- profile `source.probe_warnings[]`
-- finding IDs and severities
-- compare diff `id` and `level`
-- compare diff `baseline` and `candidate`; missing values are encoded as `{ "kind": "absent" }`
-- compare `verdict.level`
-- compare `verdict.material`
-- compare `verdict.categories`
-- compare `verdict.warnings[]`
+| Command | Purpose |
+| --- | --- |
+| `run` | Collect a profile from a CDP endpoint. |
+| `targets` | List page targets and their browser context IDs. `--json` for scripts. |
+| `report` | Render a Markdown report from a profile. |
+| `compare` | Compare a baseline profile against a candidate. |
+| `explain` | Render a compact explanation of a profile or compare result. |
+| `guide` | Guided terminal flow over the same commands. Alias: `tui`. |
 
-Markdown reports and `explain --for-agent` output are prose/context, not stable parsing APIs.
+`botprint help <command>` lists flags. Notable `run` flags: `--probe-timeout <ms>` (per-check timeout inside the browser, default 2000), `--timeout <ms>` (CDP operations, default 10000), `--auth-header` (repeatable, for remote endpoints).
 
 ## Exit Codes
 
@@ -255,37 +200,21 @@ Markdown reports and `explain --for-agent` output are prose/context, not stable 
 | `4` | Probe failure. |
 | `5` | Schema validation failure. |
 
-## Validated So Far
+## Output Contract
 
-Validated:
+Profile JSON and compare JSON are the stable surfaces for scripts and agents. Markdown and `explain` output are prose. The contract, finding IDs, warning IDs, and category glossary are documented in [`docs/agent-usage.md`](docs/agent-usage.md). Drop-in agent presets (a Claude Code skill and an `AGENTS.md` snippet) live in [`agent-presets/`](agent-presets).
 
-- macOS
-- local Google Chrome over CDP
-- Bun source run
-- Bun compiled binary
-- source-vs-binary smoke test against local Chrome
-- Playwright Chromium over CDP (external consumer)
-- Docker Chrome via `chromedp/headless-shell` on Docker Desktop
+## Validated On
 
-Not yet validated:
+- Linux x64: Chromium headless, Playwright Chromium headless shell (source run and compiled binary)
+- macOS: Google Chrome headed, Playwright Chromium, Docker Chrome via `chromedp/headless-shell`
 
-- Linux binary
-- remote authenticated `wss://` CDP endpoint
+Not yet validated: Windows binary, remote authenticated `wss://` CDP endpoints.
 
 ## Privacy
 
-Botprint does not upload profile data. See [`PRIVACY.md`](PRIVACY.md) for what profile artifacts contain and how to handle them.
+Botprint does not upload anything. Profiles stay on disk. See [`PRIVACY.md`](PRIVACY.md) for what they contain.
 
-## Agent Usage
+## Contributing and License
 
-See [`docs/agent-usage.md`](docs/agent-usage.md) for Codex, Claude Code, Cursor, and other coding-agent workflows.
-
-Drop-in agent presets live in [`agent-presets/`](agent-presets) — a Claude Code skill and an `AGENTS.md` snippet for harnesses that follow the AGENTS.md convention.
-
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## License
-
-MIT. See [`LICENSE`](LICENSE).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). MIT, see [`LICENSE`](LICENSE).

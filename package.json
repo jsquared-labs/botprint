@@ -1,10 +1,20 @@
 {
   "name": "botprint",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Botprint shows what your automated browser exposes to the web, and what changed from your baseline.",
-  "private": true,
   "license": "MIT",
   "type": "module",
+  "keywords": [
+    "cdp",
+    "chrome-devtools-protocol",
+    "browser-automation",
+    "playwright",
+    "puppeteer",
+    "headless-chrome",
+    "diagnostics",
+    "agent-tools",
+    "debugging"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/oh-meh/botprint.git"
@@ -13,12 +23,23 @@
     "url": "https://github.com/oh-meh/botprint/issues"
   },
   "homepage": "https://github.com/oh-meh/botprint#readme",
+  "engines": {
+    "bun": ">=1.2.0"
+  },
   "bin": {
     "botprint": "./src/cli.ts"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "PRIVACY.md",
+    "docs/agent-usage.md"
+  ],
   "scripts": {
     "botprint": "bun run src/cli.ts",
     "build": "bun build --compile src/cli.ts --outfile dist/botprint",
+    "build:release": "bun run scripts/build-release.ts",
     "examples:generate": "bun run scripts/generate-examples.ts",
     "smoke:local": "bun run scripts/smoke-local.ts",
     "test": "bun test",

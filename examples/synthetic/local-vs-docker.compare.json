@@ -1,6 +1,6 @@
 {
-  "schema_version": "0.2",
-  "botprint_version": "0.1.0",
+  "schema_version": "0.3",
+  "botprint_version": "0.2.0",
   "created_at": "2026-04-28T00:00:00.000Z",
   "baseline": {
     "label": "synthetic-local",
@@ -12,13 +12,92 @@
   },
   "diffs": [
     {
+      "id": "automation.chrome_object_changed",
+      "category": "automation",
+      "level": "material",
+      "path": "signals.automation.chrome_object",
+      "baseline": true,
+      "candidate": false,
+      "summary": "window.chrome presence changed"
+    },
+    {
       "id": "identity.user_agent_changed",
       "category": "identity",
       "level": "advisory",
       "path": "signals.identity.user_agent",
-      "baseline": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36",
-      "candidate": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 Chrome/145.0.0.0 Safari/537.36",
+      "baseline": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "candidate": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36",
       "summary": "User agent changed"
+    },
+    {
+      "id": "identity.user_agent_data_changed",
+      "category": "identity",
+      "level": "advisory",
+      "path": "signals.identity.user_agent_data",
+      "baseline": {
+        "brands": [
+          {
+            "brand": "Chrome",
+            "version": "147"
+          },
+          {
+            "brand": "Chromium",
+            "version": "147"
+          },
+          {
+            "brand": "Not_A Brand",
+            "version": "8"
+          }
+        ],
+        "mobile": false,
+        "platform": "Synthetic"
+      },
+      "candidate": {
+        "brands": [
+          {
+            "brand": "HeadlessChrome",
+            "version": "145"
+          },
+          {
+            "brand": "Chromium",
+            "version": "145"
+          },
+          {
+            "brand": "Not_A Brand",
+            "version": "8"
+          }
+        ],
+        "mobile": false,
+        "platform": "Synthetic"
+      },
+      "summary": "Client hint brands or platform changed"
+    },
+    {
+      "id": "identity.plugins_count_changed",
+      "category": "identity",
+      "level": "advisory",
+      "path": "signals.identity.plugins_count",
+      "baseline": 3,
+      "candidate": 0,
+      "summary": "Plugin count changed"
+    },
+    {
+      "id": "identity.mime_types_count_changed",
+      "category": "identity",
+      "level": "advisory",
+      "path": "signals.identity.mime_types_count",
+      "baseline": 2,
+      "candidate": 0,
+      "summary": "MIME type count changed"
+    },
+    {
+      "id": "identity.pdf_viewer_changed",
+      "category": "identity",
+      "level": "advisory",
+      "path": "signals.identity.pdf_viewer_enabled",
+      "baseline": true,
+      "candidate": false,
+      "summary": "PDF viewer availability changed"
     },
     {
       "id": "environment.timezone_changed",
@@ -47,6 +126,21 @@
       "summary": "Viewport changed"
     },
     {
+      "id": "environment.outer_window_changed",
+      "category": "environment",
+      "level": "advisory",
+      "path": "signals.environment.outer_window",
+      "baseline": {
+        "width": 1440,
+        "height": 980
+      },
+      "candidate": {
+        "width": 0,
+        "height": 0
+      },
+      "summary": "Outer window size changed"
+    },
+    {
       "id": "environment.screen_changed",
       "category": "environment",
       "level": "advisory",
@@ -55,13 +149,15 @@
         "width": 1440,
         "height": 900,
         "avail_width": 1440,
-        "avail_height": 875
+        "avail_height": 875,
+        "color_depth": 30
       },
       "candidate": {
         "width": 1280,
         "height": 720,
         "avail_width": 1280,
-        "avail_height": 720
+        "avail_height": 720,
+        "color_depth": 24
       },
       "summary": "Screen metrics changed"
     },
@@ -84,6 +180,15 @@
       "summary": "Device memory changed"
     },
     {
+      "id": "environment.speech_voices_changed",
+      "category": "environment",
+      "level": "advisory",
+      "path": "signals.environment.speech_voices_count",
+      "baseline": 12,
+      "candidate": 0,
+      "summary": "Speech synthesis voice count changed"
+    },
+    {
       "id": "rendering.webgl_renderer_changed",
       "category": "rendering",
       "level": "material",
@@ -100,6 +205,34 @@
       "baseline": "synthetic-local-canvas",
       "candidate": "synthetic-docker-canvas",
       "summary": "Canvas hash changed"
+    },
+    {
+      "id": "rendering.audio_hash_changed",
+      "category": "rendering",
+      "level": "advisory",
+      "path": "signals.rendering.audio.hash",
+      "baseline": "synthetic-local-canvas-audio",
+      "candidate": "synthetic-docker-canvas-audio",
+      "summary": "Audio hash changed"
+    },
+    {
+      "id": "rendering.fonts_changed",
+      "category": "rendering",
+      "level": "material",
+      "path": "signals.rendering.fonts.detected",
+      "baseline": [
+        "Arial",
+        "Courier New",
+        "Georgia",
+        "Helvetica",
+        "Helvetica Neue",
+        "Menlo",
+        "Monaco",
+        "Times New Roman",
+        "Verdana"
+      ],
+      "candidate": [],
+      "summary": "Detected font set changed"
     },
     {
       "id": "storage.indexed_db_changed",
@@ -147,6 +280,15 @@
       "summary": "Permission state changed for microphone"
     },
     {
+      "id": "permissions.notification_api_changed",
+      "category": "permissions",
+      "level": "advisory",
+      "path": "signals.permissions.notification_api",
+      "baseline": "prompt",
+      "candidate": "denied",
+      "summary": "Permission state changed for notification_api"
+    },
+    {
       "id": "permissions.notifications_changed",
       "category": "permissions",
       "level": "advisory",
@@ -154,6 +296,35 @@
       "baseline": "prompt",
       "candidate": "denied",
       "summary": "Permission state changed for notifications"
+    },
+    {
+      "id": "http.header.accept-language_changed",
+      "category": "http",
+      "level": "material",
+      "path": "signals.http.request_headers.accept-language",
+      "baseline": "en-US,en;q=0.9",
+      "candidate": {
+        "kind": "absent"
+      },
+      "summary": "Request header accept-language changed"
+    },
+    {
+      "id": "http.header.sec-ch-ua_changed",
+      "category": "http",
+      "level": "advisory",
+      "path": "signals.http.request_headers.sec-ch-ua",
+      "baseline": "\"Chrome\";v=\"147\", \"Chromium\";v=\"147\", \"Not_A Brand\";v=\"8\"",
+      "candidate": "\"HeadlessChrome\";v=\"145\", \"Chromium\";v=\"145\", \"Not_A Brand\";v=\"8\"",
+      "summary": "Request header sec-ch-ua changed"
+    },
+    {
+      "id": "http.header.user-agent_changed",
+      "category": "http",
+      "level": "advisory",
+      "path": "signals.http.request_headers.user-agent",
+      "baseline": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "candidate": "Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36",
+      "summary": "Request header user-agent changed"
     },
     {
       "id": "cdp.product_changed",
@@ -169,8 +340,10 @@
     "level": "material",
     "material": true,
     "categories": [
+      "automation",
       "cdp",
       "environment",
+      "http",
       "identity",
       "permissions",
       "rendering",
@@ -181,6 +354,15 @@
         "id": "comparison.browser_binary_mismatch",
         "summary": "Baseline and candidate were collected from different browser binaries.",
         "implications": "Diffs below may include artifacts of the binary difference, not environment drift alone.",
+        "evidence": {
+          "baseline_product": "Chrome/147.0.0.0",
+          "candidate_product": "HeadlessChrome/145.0.0.0"
+        }
+      },
+      {
+        "id": "comparison.headless_mode_mismatch",
+        "summary": "One profile came from a headless-shell build and the other from a headed or new-headless build.",
+        "implications": "Plugin counts, window.chrome, outer window size, notification permission, and the HeadlessChrome user agent all change with headless mode. Treat those diffs as mode differences unless the environments are meant to match.",
         "evidence": {
           "baseline_product": "Chrome/147.0.0.0",
           "candidate_product": "HeadlessChrome/145.0.0.0"

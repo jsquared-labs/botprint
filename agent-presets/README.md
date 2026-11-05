@@ -1,14 +1,10 @@
 # Agent Presets
 
-Drop-in agent instructions for using Botprint as a diagnostic tool from Claude Code, Codex, Cursor, browser-use, or any other agent loop that follows the AGENTS.md convention.
+Drop-in instructions for using Botprint from Claude Code, Codex, Cursor, browser-use, or any other agent loop that follows the AGENTS.md convention. They tell an agent when to reach for Botprint, how to run it, what to parse, and what the common findings usually mean.
 
-These presets help an agent decide *when* to reach for Botprint, *how* to run it, what to parse, and what kinds of requests to refuse.
+Agents working *on* Botprint itself should read `CONTRIBUTING.md` and `docs/agent-usage.md` instead.
 
-They are not intended for agents working *on* Botprint itself — that audience reads `CONTRIBUTING.md` and `docs/agent-usage.md` directly.
-
-## Pick the format your agent uses
-
-### Claude Code skill
+## Claude Code skill
 
 Copy `claude-code/` into `~/.claude/skills/botprint/` (user-level) or `.claude/skills/botprint/` (project-level):
 
@@ -17,24 +13,14 @@ mkdir -p ~/.claude/skills/botprint
 cp claude-code/SKILL.md ~/.claude/skills/botprint/SKILL.md
 ```
 
-The skill becomes invocable by name. Claude Code will pick it up the next time it scans skills.
+## AGENTS.md snippet
 
-### AGENTS.md snippet
-
-Codex CLI, Cursor, browser-use, and most other agent harnesses read `AGENTS.md` (or a per-provider equivalent) at the root of your repo. Copy the contents of `agents-md/botprint.md` into that file.
-
-If your repo doesn't have an `AGENTS.md` yet:
+Codex CLI, Cursor, browser-use, and most other harnesses read `AGENTS.md` at the repo root. Append `agents-md/botprint.md` to it, or copy it in if the file does not exist:
 
 ```bash
 cp agents-md/botprint.md ./AGENTS.md
 ```
 
-If it does, append the section under a heading like `## Browser Diagnostics (Botprint)`.
-
 ## Prerequisite
 
-The agent presets assume `botprint` is on `PATH`. Either:
-
-- Install the compiled binary somewhere on `PATH`, or
-- Run from source via `bun run src/cli.ts` and adapt the recipes accordingly.
-
+The presets call `botprint` directly. Install a release binary onto `PATH`, run `bun install -g botprint`, or use `bunx botprint` (see the README's Install section).

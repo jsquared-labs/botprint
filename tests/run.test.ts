@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { EXIT_CODES } from "../src/exit-codes";
 import { BotprintError } from "../src/errors";
 import { endpointKind } from "../src/profile";
-import { browserDiagnosticUrl, parseHeaderLines, selectTarget } from "../src/run";
+import { browserDiagnosticUrl, captureRequestHeaders, parseHeaderLines, selectBrowserContext, selectTarget } from "../src/run";
 import type { CdpTarget } from "../src/cdp";
 
 describe("parseHeaderLines", () => {
@@ -115,3 +115,52 @@ function expectBotprintUsageError(fn: () => unknown, message: string): void {
     }
   }
 }
+
+describe("selectBrowserContext", () => {
+  const page = (targetId: string, browserContextId: string | undefined, type = "page"): CdpTarget => ({
+    targetId,
+    type,
+    title: "",
+    url: "about:blank",
+    attached: false,
+    ...(browserContextId === undefined ? {} : { browserContextId }),
+  });
+
+  test("uses the context of the first page target by default", () => {
+    expect(selectBrowserContext([page("p1", "C1"), page("p2", "C1")], undefined)).toEqual({ browserContextId: "C1", source: "page-target", warnings: [] });
+  });
+
+  test("warns when page targets span multiple contexts", () => {
+    expect(selectBrowserContext([page("p1", "C1"), page("p2", "C2")], undefined)).toEqual({ browserContextId: "C1", source: "page-target", warnings: ["multiple-browser-contexts"] });
+  });
+
+  test("falls back to the browser default context when no page targets exist", () => {
+    expect(selectBrowserContext([page("w1", "C1", "service_worker")], undefined)).toEqual({ browserContextId: undefined, source: "browser-default", warnings: ["default-browser-context"] });
+    expect(selectBrowserContext([], undefined)).toEqual({ browserContextId: undefined, source: "browser-default", warnings: ["default-browser-context"] });
+  });
+
+  test("honours explicit --context values", () => {
+    expect(selectBrowserContext([page("p1", "C1")], "default")).toEqual({ browserContextId: undefined, source: "browser-default", warnings: [] });
+    expect(selectBrowserContext([page("p1", "C1")], "C9")).toEqual({ browserContextId: "C9", source: "explicit", warnings: [] });
+  });
+});
+
+describe("captureRequestHeaders", () => {
+  test("keeps allowlisted headers and drops cookies, authorization, and host", () => {
+    const headers = new Headers({
+      Host: "127.0.0.1:1234",
+      Cookie: "session=secret",
+      Authorization: "Bearer secret",
+      "Accept-Language": "en-GB,en;q=0.9",
+      "Sec-CH-UA": '"Chromium";v="153"',
+      "User-Agent": "Mozilla/5.0",
+      "X-Custom": "nope",
+    });
+
+    expect(captureRequestHeaders(headers)).toEqual({
+      "accept-language": "en-GB,en;q=0.9",
+      "sec-ch-ua": '"Chromium";v="153"',
+      "user-agent": "Mozilla/5.0",
+    });
+  });
+});

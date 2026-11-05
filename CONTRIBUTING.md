@@ -1,40 +1,30 @@
 # Contributing
 
-Botprint is a small, focused tool. Pull requests should keep it that way.
+Botprint is a small, focused tool. Pull requests should keep it that way: one concern per PR.
 
-Botprint provides browser-environment diagnostics, comparison, and reproducible evidence. Changes should not add target-site bypass guidance, stealth presets, CAPTCHA workflows, or recommendations for evading detection systems.
+Botprint reports what a browser exposes and what differs between environments, and names the likely cause. It does not ship spoofing presets or patches, and findings should stay evidence-based: a finding names a signal, the evidence, and the launch option or environment difference that commonly produces it.
 
-Use evidence language: browser-visible signals, automation exposure, compatibility risk, environment consistency, material baseline difference. Avoid: stealth score, undetectable, bypass, evade.
+## Architecture rules
 
-## Pull Requests
+- `probe.ts` collects raw signals and never interprets them.
+- Profile JSON is the durable contract. `findings.ts`, `compare.ts`, and `render.ts` are pure functions over it.
+- New signals go into the schema in `profile.ts` with a `schema_version` bump, the fixture in `tests/fixtures/profile.ts`, and the generator in `scripts/generate-examples.ts`.
+- Finding IDs, diff IDs, warning IDs, severity values, and exit codes are stable once released. Add new ones; do not rename.
 
-Keep changes small and focused. One concern per PR. The PR template's Product Boundary checkboxes need to be honest — if a change drifts toward evasion territory, say so and explain.
+## Before you submit
 
-## Commit Hygiene
+```bash
+bun run check               # typecheck + tests
+bun run examples:generate   # if findings, compare, render, or the schema changed
+bun run smoke:local         # if the probe or CDP client changed; needs a local Chrome
+bun run build               # if anything touches the compiled-binary path
+```
 
-- Every commit should pass `bun run check`.
-- Commits that affect the compiled binary path should also pass a `bun build --compile` smoke.
-- Don't commit generated profiles, reports, logs, temp files, or secrets. The `.gitignore` covers the common cases; if you produce a new artifact type, add it there.
-- Curated examples and fixtures belong under `examples/` or `tests/fixtures/` only.
+Do not commit generated profiles, reports, logs, or secrets. Curated examples live under `examples/` and fixtures under `tests/fixtures/` only.
 
-## What Reviewers Look For
+## What reviewers look for
 
-- Does this stay within diagnostics rather than drifting toward evasion?
-- Are findings evidence-based rather than speculative?
-- Does output describe investigation rather than corrections to apply?
-- Are errors and exit codes useful to humans and agents?
+- Are findings evidence-based, with a concrete common cause?
+- Does the stable contract still hold for existing consumers?
+- Are errors and exit codes useful to both humans and agents?
 - Is generated data clearly separated from source fixtures?
-
-## Testing
-
-Before submitting:
-
-```bash
-bun run check
-```
-
-If your change affects the compiled binary path:
-
-```bash
-bun build --compile src/cli.ts --outfile /tmp/botprint
-```

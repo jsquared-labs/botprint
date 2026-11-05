@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { compareProfiles } from "../src/compare";
-import { sampleProfile } from "./fixtures/profile";
+import { FIXTURE_USER_AGENT, sampleProfile } from "./fixtures/profile";
 
 describe("compareProfiles", () => {
   test("returns a none verdict for identical profiles", () => {
@@ -32,7 +32,7 @@ describe("compareProfiles", () => {
 
   test("warns without escalating when browser binary family changes", () => {
     const baseline = sampleProfile({ cdp: { product: "Chrome/147.0.0.0" } });
-    const candidate = sampleProfile({ cdp: { product: "HeadlessChrome/145.0.0.0" } });
+    const candidate = sampleProfile({ cdp: { product: "Firefox/145.0" } });
 
     const result = compareProfiles({ baseline, baselinePath: "baseline.json", candidate, candidatePath: "candidate.json" });
 
@@ -45,10 +45,74 @@ describe("compareProfiles", () => {
         implications: "Diffs below may include artifacts of the binary difference, not environment drift alone.",
         evidence: {
           baseline_product: "Chrome/147.0.0.0",
-          candidate_product: "HeadlessChrome/145.0.0.0",
+          candidate_product: "Firefox/145.0",
         },
       },
     ]);
+  });
+
+  test("treats Chrome and HeadlessChrome at the same version as a mode difference, not a binary mismatch", () => {
+    const baseline = sampleProfile({ cdp: { product: "Chrome/153.0.8010.12" } });
+    const candidate = sampleProfile({ cdp: { product: "HeadlessChrome/153.0.8010.12" } });
+
+    const result = compareProfiles({ baseline, baselinePath: "baseline.json", candidate, candidatePath: "candidate.json" });
+
+    expect(result.verdict.warnings.map((warning) => warning.id)).toEqual(["comparison.headless_mode_mismatch"]);
+  });
+
+  test("ignores build-number noise in user agent strings but not family or platform changes", () => {
+    const baseline = sampleProfile();
+    const sameMajor = sampleProfile({
+      identity: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7320.55 Safari/537.36" },
+    });
+    const headless = sampleProfile({
+      identity: { user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36" },
+    });
+    const linux = sampleProfile({
+      identity: { user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36" },
+    });
+
+    const ids = (candidate: ReturnType<typeof sampleProfile>) =>
+      compareProfiles({ baseline, baselinePath: "b.json", candidate, candidatePath: "c.json" }).diffs.map((diff) => diff.id);
+
+    expect(ids(sameMajor)).toEqual([]);
+    expect(ids(headless)).toEqual(["identity.user_agent_changed"]);
+    expect(ids(linux)).toEqual(["identity.user_agent_changed"]);
+  });
+
+  test("warns when browser context sources differ", () => {
+    const baseline = sampleProfile();
+    const candidate = sampleProfile({ source: { browser_context_source: "browser-default", browser_context_id: undefined } });
+
+    const result = compareProfiles({ baseline, baselinePath: "baseline.json", candidate, candidatePath: "candidate.json" });
+
+    expect(result.verdict.warnings.map((warning) => warning.id)).toEqual(["comparison.browser_context_mismatch"]);
+  });
+
+  test("diffs request headers only when both profiles captured them, and treats Accept-Language as material", () => {
+    const baseline = sampleProfile();
+    const noLanguage = sampleProfile({
+      http: { status: "captured", request_headers: { accept: "text/html,application/xhtml+xml", "sec-ch-ua": '"Chromium";v="147", "Google Chrome";v="147"', "user-agent": FIXTURE_USER_AGENT } },
+    });
+    const notCaptured = sampleProfile({ http: null });
+
+    const withLanguageLoss = compareProfiles({ baseline, baselinePath: "b.json", candidate: noLanguage, candidatePath: "c.json" });
+    expect(withLanguageLoss.diffs.map((diff) => [diff.id, diff.level])).toEqual([["http.header.accept-language_changed", "material"]]);
+    expect(withLanguageLoss.diffs[0]?.candidate).toEqual({ kind: "absent" });
+    expect(withLanguageLoss.verdict.categories).toEqual(["http"]);
+
+    const skipped = compareProfiles({ baseline, baselinePath: "b.json", candidate: notCaptured, candidatePath: "c.json" });
+    expect(skipped.diffs).toEqual([]);
+    expect(skipped.verdict.warnings.map((warning) => warning.id)).toEqual(["comparison.http_not_captured"]);
+  });
+
+  test("marks lost fonts material and gained fonts advisory", () => {
+    const baseline = sampleProfile();
+    const lost = sampleProfile({ rendering: { fonts: { detected: ["Arial"] } } });
+    const gained = sampleProfile({ rendering: { fonts: { detected: [...baseline.signals.rendering.fonts.detected, "Roboto"] } } });
+
+    expect(compareProfiles({ baseline, baselinePath: "b.json", candidate: lost, candidatePath: "c.json" }).diffs[0]?.level).toBe("material");
+    expect(compareProfiles({ baseline, baselinePath: "b.json", candidate: gained, candidatePath: "c.json" }).diffs[0]?.level).toBe("advisory");
   });
 
   test("warns when browser major versions differ by two or more", () => {

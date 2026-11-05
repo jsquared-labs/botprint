@@ -8,23 +8,22 @@ Botprint does not upload profile data, reports, compare artifacts, auth headers,
 
 Botprint profiles can contain browser-environment data, including:
 
-- user agent
-- platform
-- languages
+- user agent and client hint brands, platform, and mobile flag
+- platform, language, and languages
 - timezone
-- viewport and screen metrics
-- device scale factor
-- hardware concurrency
-- device memory
-- plugin and MIME type counts
-- WebGL vendor and renderer
-- unmasked WebGL vendor and renderer when available
-- canvas sample status and hash
+- viewport, outer window, and screen metrics including color depth
+- device scale factor, hardware concurrency, device memory, speech voice count
+- plugin and MIME type counts, PDF viewer availability
+- `navigator.webdriver`, `window.chrome` presence, known automation globals
+- WebGL vendor and renderer, unmasked when available
+- canvas and audio sample hashes
+- which of a fixed list of common fonts are installed
 - cookie, localStorage, sessionStorage, IndexedDB, and service worker availability
-- selected Permissions API states
-- WebRTC API availability and host-candidate gathering presence
+- selected Permissions API states and `Notification.permission`
+- WebRTC API availability and host-candidate gathering presence (no STUN servers are contacted)
+- request headers the browser sent to the local diagnostic page, from a fixed allowlist: Accept, Accept-Encoding, Accept-Language, DNT, Priority, Sec-CH-UA*, Sec-Fetch-*, Sec-GPC, Upgrade-Insecure-Requests, User-Agent. Cookies, Authorization, Host, and any other header are never recorded.
 - CDP browser product and protocol version
-- profile label, target URL, and probe context
+- profile label, target URL, probe context, and browser context ID
 
 Existing-target profiles may also include:
 
@@ -36,7 +35,7 @@ These fields are useful for diagnostics, but they can reveal details about a bro
 
 ## Fresh Diagnostic Page
 
-By default, Botprint creates a fresh local diagnostic page and runs the probe there. The diagnostic page is static HTML.
+By default, Botprint creates a fresh local diagnostic page inside the browser context of the first open page target and runs the probe there. The diagnostic page is static HTML served from a local socket that exists only for the duration of the run. The page runs in the same context as your open pages but does not read them.
 
 The diagnostic server binds to `127.0.0.1` by default.
 

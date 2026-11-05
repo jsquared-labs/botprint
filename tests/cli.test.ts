@@ -41,9 +41,11 @@ describe("parseArgs", () => {
           quiet: false,
           label: "local",
           timeout: 5000,
+          probeTimeout: undefined,
           authHeaders: ["Authorization: Bearer token"],
           diagnosticBind: undefined,
           diagnosticHost: undefined,
+          context: undefined,
           target: undefined,
           targetUrl: undefined,
         },
@@ -75,9 +77,11 @@ describe("parseArgs", () => {
           quiet: false,
           label: undefined,
           timeout: undefined,
+          probeTimeout: undefined,
           authHeaders: [],
           diagnosticBind: "0.0.0.0",
           diagnosticHost: "host.docker.internal",
+          context: undefined,
           target: undefined,
           targetUrl: undefined,
         },
@@ -107,14 +111,33 @@ describe("parseArgs", () => {
           quiet: false,
           label: undefined,
           timeout: undefined,
+          probeTimeout: undefined,
           authHeaders: [],
           diagnosticBind: undefined,
           diagnosticHost: undefined,
+          context: undefined,
           target: "page-1",
           targetUrl: undefined,
         },
       },
     });
+  });
+
+  test("rejects --context on existing-target runs", () => {
+    const parsed = parseArgs(["run", "--cdp", "http://localhost:9222", "--out", "x.json", "--target", "T1", "--context", "C1"]);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.message).toBe("--context is only valid for fresh diagnostic-page runs.");
+    }
+  });
+
+  test("parses --context and --probe-timeout for fresh runs", () => {
+    const parsed = parseArgs(["run", "--cdp", "http://localhost:9222", "--out", "x.json", "--context", "default", "--probe-timeout", "5000"]);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok && parsed.command.command === "run") {
+      expect(parsed.command.options.context).toBe("default");
+      expect(parsed.command.options.probeTimeout).toBe(5000);
+    }
   });
 
   test("rejects ambiguous existing-target selectors", () => {
@@ -277,7 +300,9 @@ describe("renderHelp", () => {
   });
 
   test("renders target-mode help", () => {
-    expect(renderHelp("run")).toContain("Use --target to evaluate an existing page target.");
+    expect(renderHelp("run")).toContain("Use --target to evaluate an existing page target in place.");
+    expect(renderHelp("run")).toContain("--context <id|default>");
+    expect(renderHelp("run")).toContain("--probe-timeout <ms>");
     expect(renderHelp("targets")).toContain("List existing page targets");
   });
 
