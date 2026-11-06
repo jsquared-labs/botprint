@@ -27,7 +27,7 @@
     "bun": ">=1.2.0"
   },
   "bin": {
-    "botprint": "./src/cli.ts"
+    "botprint": "src/cli.ts"
   },
   "files": [
     "src",
