@@ -17,12 +17,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oh-meh/botprint.git"
+    "url": "git+https://github.com/jsquared-labs/botprint.git"
   },
   "bugs": {
-    "url": "https://github.com/oh-meh/botprint/issues"
+    "url": "https://github.com/jsquared-labs/botprint/issues"
   },
-  "homepage": "https://github.com/oh-meh/botprint#readme",
+  "homepage": "https://github.com/jsquared-labs/botprint#readme",
   "engines": {
     "bun": ">=1.2.0"
   },

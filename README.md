@@ -17,7 +17,7 @@ Typical questions it answers:
 Release binaries (no runtime needed):
 
 ```bash
-curl -fsSL https://github.com/oh-meh/botprint/releases/latest/download/botprint-linux-x64 -o botprint
+curl -fsSL https://github.com/jsquared-labs/botprint/releases/latest/download/botprint-linux-x64 -o botprint
 chmod +x botprint && sudo mv botprint /usr/local/bin/
 ```
 
@@ -33,7 +33,7 @@ bun install -g botprint     # or install globally
 From source:
 
 ```bash
-git clone https://github.com/oh-meh/botprint && cd botprint
+git clone https://github.com/jsquared-labs/botprint && cd botprint
 bun install && bun run build   # writes dist/botprint
 ```
 
