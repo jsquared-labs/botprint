@@ -1,5 +1,10 @@
 # Botprint
 
+[![CI](https://github.com/jsquared-labs/botprint/actions/workflows/ci.yml/badge.svg)](https://github.com/jsquared-labs/botprint/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/botprint)](https://www.npmjs.com/package/botprint)
+[![Release](https://img.shields.io/github/v/release/jsquared-labs/botprint)](https://github.com/jsquared-labs/botprint/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/jsquared-labs/botprint)](LICENSE)
+
 Botprint shows what your automated browser exposes to the web, and what changed from your baseline.
 
 It connects to a running Chromium-based browser over the Chrome DevTools Protocol (CDP), runs a probe in a page inside the browser context you are debugging, and writes a schema-versioned JSON profile. Profiles can be rendered as reports, compared against a baseline, and condensed into short explanations for coding agents.
