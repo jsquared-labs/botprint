@@ -64,3 +64,6 @@ botprint-report.md
 !tests/fixtures/**/*.comparison.json
 !tests/fixtures/**/*.report.md
 !tests/fixtures/**/*.agent.md
+
+# Claude Code per-machine permission file; never commit
+.claude/settings.local.json
