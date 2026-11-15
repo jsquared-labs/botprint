@@ -7,28 +7,28 @@
 
 Botprint shows what your automated browser exposes to the web, and what changed from your baseline.
 
-It connects to a running Chromium-based browser over the Chrome DevTools Protocol (CDP), runs a probe in a page inside the browser context you are debugging, and writes a schema-versioned JSON profile. Profiles can be rendered as reports, compared against a baseline, and condensed into short explanations for coding agents.
+Point it at a running Chromium-based browser over the Chrome DevTools Protocol (CDP). It opens a page in the browser context you're debugging, records what that page can see, and saves the result as a JSON profile. You can then turn a profile into a report, compare it with a baseline, or condense it into a short explanation for a coding agent. Each finding names the launch option or environment difference that most likely caused it. Botprint does not ship spoofing presets or patches.
 
-Botprint is a diagnostic tool. It reports what the browser exposes, what differs between two environments, and which launch option or environment difference is most likely responsible. It does not ship spoofing presets or patches.
-
-Typical questions it answers:
+It's built for questions like these:
 
 - Why does my Playwright or Puppeteer flow behave differently in Docker or CI than on my laptop?
-- What does the site actually see from this browser agent: user agent, client hints, Accept-Language, timezone, fonts, GPU, storage, permissions?
-- Is this difference real environment drift, or an artifact of how I measured it?
+- What does a site see from this browser: user agent, client hints, Accept-Language, timezone, fonts, GPU, storage, permissions?
+- Is this difference real drift between environments, or did I measure the two differently?
+
+Botprint sees what page JavaScript and request headers reveal. It can't see the network layer (TLS and HTTP/2 fingerprints, IP address) or anything about how the browser is driven, such as mouse movement or timing. Firefox and WebKit aren't supported.
 
 ## Install
 
-Release binaries (no runtime needed):
+Release binaries need no runtime:
 
 ```bash
 curl -fsSL https://github.com/jsquared-labs/botprint/releases/latest/download/botprint-linux-x64 -o botprint
 chmod +x botprint && sudo mv botprint /usr/local/bin/
 ```
 
-Replace `linux-x64` with `linux-arm64`, `darwin-arm64`, `darwin-x64`, or `windows-x64.exe`.
+Replace `linux-x64` with `linux-arm64`, `darwin-arm64`, or `darwin-x64`. On Windows, download `botprint-windows-x64.exe` from the [latest release](https://github.com/jsquared-labs/botprint/releases/latest).
 
-With [Bun](https://bun.sh):
+The npm package needs [Bun](https://bun.sh); `npx botprint` under Node won't work.
 
 ```bash
 bunx botprint help          # run without installing
@@ -64,7 +64,7 @@ botprint report docker.profile.json
 botprint explain docker.profile.json --for-agent
 ```
 
-A profile report looks like this (synthetic Docker example):
+Here's part of a report for a synthetic Docker profile. Each finding comes with a suggestion for where to look:
 
 ````markdown
 # Botprint Profile: synthetic-docker
@@ -84,9 +84,14 @@ _Showing top 5 of 9 findings. Use `--json` for the full finding list._
 - **Software WebGL renderer detected** (warning): Renderer evidence: WebKit WebGL SwiftShader Device (Synthetic).
 - **No common fonts detected** (warning): None of 31 common fonts rendered differently from the generic fallback families.
 - **No Accept-Language header is sent** (warning): The browser's request for the diagnostic page carried no Accept-Language header.
+
+## Suggested Investigation
+- Software rendering is normal in headless, Docker, and CI without a GPU, and is forced by --disable-gpu. Check the launch flags and whether a GPU is available in the candidate environment.
+- Check the container or CI image for installed fonts (for example `fc-list`). Minimal Docker images frequently ship none.
+- Set a locale on the context (Playwright `locale`, Puppeteer `--lang`/`--accept-lang`) or in the container environment, matching the baseline.
 ````
 
-And a compare:
+And part of a compare. The two profiles came from different browser builds (headed Chrome 147 and the headless shell of 145), and Botprint says so before listing differences, because some of them, such as `window.chrome`, come from the build rather than the environment:
 
 ````markdown
 # Botprint Compare: synthetic-local -> synthetic-docker
@@ -98,6 +103,10 @@ And a compare:
 - Categories: automation, cdp, environment, http, identity, permissions, rendering, storage
 - Warnings: comparison.browser_binary_mismatch, comparison.headless_mode_mismatch
 
+## Warnings
+- **comparison.browser_binary_mismatch**: Baseline and candidate were collected from different browser binaries. Diffs below may include artifacts of the binary difference, not environment drift alone. (baseline_product="Chrome/147.0.0.0", candidate_product="HeadlessChrome/145.0.0.0")
+- **comparison.headless_mode_mismatch**: One profile came from the headless shell binary and the other from a headed or new-headless build. Plugin counts, window.chrome, outer window size, and notification permission change with the headless shell; the user agent changes only against a headed build. Treat those diffs as mode differences unless the environments are meant to match. (baseline_product="Chrome/147.0.0.0", candidate_product="HeadlessChrome/145.0.0.0", baseline_user_agent="Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36", candidate_user_agent="Mozilla/5.0 (Synthetic) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36")
+
 ## Top Differences
 _Showing top 5 of 28 differences. Use `--json` for the full diff list._
 - **window.chrome presence changed** (material): signals.automation.chrome_object true -> false
@@ -107,9 +116,9 @@ _Showing top 5 of 28 differences. Use `--json` for the full diff list._
 - **IndexedDB availability changed** (material): signals.storage.indexed_db "available" -> "error"
 ````
 
-Full synthetic examples live in [`examples/synthetic`](examples/synthetic).
+The full examples are in [`examples/synthetic`](examples/synthetic).
 
-## What It Measures
+## What it measures
 
 | Category | Signals |
 | --- | --- |
@@ -123,20 +132,22 @@ Full synthetic examples live in [`examples/synthetic`](examples/synthetic).
 | `http` | request headers the browser sent for the diagnostic page: User-Agent, Accept-Language, Sec-CH-UA client hints, Sec-Fetch, Accept-Encoding |
 | `cdp` | browser product and protocol version |
 
-Findings are generated from these signals with stable IDs. Each finding names the launch option or environment difference that commonly causes it, for example `--enable-automation` for `navigator.webdriver`, or the headless shell binary for a missing `window.chrome`.
+Botprint turns these signals into findings, each with a stable ID. A finding names the launch option or environment difference that usually causes it: `--enable-automation` for `navigator.webdriver`, for example, or the headless shell binary for a missing `window.chrome`.
 
-## Browser Contexts
+## Browser contexts
 
-Playwright and Puppeteer apply locale, timezone, viewport, permissions, and init scripts per browser context, not per browser. By default `botprint run` creates its fresh diagnostic page inside the browser context of the first open page target, so those options are measured. The profile records which context was used in `source.browser_context_id` and `source.browser_context_source`.
+Playwright sets locale, timezone, viewport, permissions, and init scripts on a browser context, not on the whole browser. So by default `botprint run` opens its page in the same context as the first open page, and those settings show up in the profile. The profile records which context it used in `source.browser_context_id` and `source.browser_context_source`.
 
-- `--context default` measures the browser's default context instead (process-level defaults only).
-- `--context <id>` picks a specific context; IDs are listed by `botprint targets --cdp ... --json`.
-- If no page is open, the fresh page falls back to the default context and the profile carries the `default-browser-context` note.
-- The diagnostic page is a real page in that context for the length of the probe: Playwright's `context.on("page")` fires, init scripts and route handlers apply to it, and it is closed when the probe ends.
+Puppeteer sets most of these on each page instead (`setUserAgent`, `emulateTimezone`, `setViewport`, `evaluateOnNewDocument`). A new page doesn't inherit them, so measure the existing page in place; see [Puppeteer](#puppeteer).
 
-## Existing Pages
+- `--context default` measures the browser's default context instead, which only has process-level defaults.
+- `--context <id>` picks a specific context. `botprint targets --cdp ... --json` lists the IDs.
+- If no page is open, Botprint falls back to the default context and adds the `default-browser-context` note to the profile.
+- While the probe runs, Botprint's page is a real page in that context: Playwright's `context.on("page")` fires, and init scripts and route handlers apply to it. Botprint closes it when the probe ends.
 
-To measure an already-open page in place, including its scripts, service workers, CSP, and storage state:
+## Existing pages
+
+To measure a page that's already open, with its own scripts, service workers, CSP, and storage:
 
 ```bash
 botprint targets --cdp http://127.0.0.1:9222 --json
@@ -144,18 +155,20 @@ botprint run --cdp http://127.0.0.1:9222 --target <targetId> --out site.profile.
 botprint run --cdp http://127.0.0.1:9222 --target-url https://app.example.test/ --out site.profile.json
 ```
 
-These profiles carry the `page-contamination-possible` note, and HTTP headers are not captured in this mode.
+These profiles carry the `page-contamination-possible` note, because the page's scripts, service workers, and app state can change what Botprint sees. HTTP headers aren't captured in this mode.
 
 ## Docker
 
-When the browser runs in a container, it needs a host-reachable diagnostic URL:
+When the browser runs in a container, it has to be able to reach Botprint's diagnostic page on the host:
 
 ```bash
 botprint run --cdp http://127.0.0.1:9334 --out docker.profile.json --label docker \
   --diagnostic-bind 0.0.0.0 --diagnostic-host host.docker.internal
 ```
 
-Omit both flags otherwise so the diagnostic page stays bound to `127.0.0.1`.
+Docker Desktop resolves `host.docker.internal` for you. On Docker Engine for Linux, start the browser container with `--add-host=host.docker.internal:host-gateway`.
+
+Leave both flags out when the browser runs on the same machine, so the diagnostic page stays bound to `127.0.0.1`.
 
 ## Playwright
 
@@ -180,7 +193,25 @@ with sync_playwright() as p:
     input("Botprint can attach to http://127.0.0.1:9333. Press Enter to quit.")
 ```
 
-Use the headless mode and browser binary that the environment under investigation really runs. Playwright's default `chromium` is the headless shell; `channel: "chromium"` runs new headless mode. Both report `HeadlessChrome` in the user agent; only the shell also drops `window.chrome`, the PDF viewer plugins, and the outer window size.
+Measure the same headless mode and browser binary that the environment you're debugging runs. Playwright's default `chromium` is the headless shell, and `channel: "chromium"` runs new headless mode. Both put `HeadlessChrome` in the user agent. Only the shell also drops `window.chrome`, the PDF viewer plugins, and the outer window size.
+
+## Puppeteer
+
+Botprint accepts the WebSocket endpoint Puppeteer gives you. Because Puppeteer's emulation lives on the page, point Botprint at your page with `--target-url`:
+
+```ts
+import puppeteer from "puppeteer";
+
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
+await page.emulateTimezone("Asia/Tokyo");
+await page.goto("https://app.example.test/");
+console.log(browser.wsEndpoint());
+// Keep the process alive, then run:
+// botprint run --cdp <ws endpoint> --target-url https://app.example.test/ --out site.profile.json
+```
+
+Without `--target-url`, Botprint opens a new page, which reports the browser's own timezone and user agent rather than the ones you set.
 
 ## Commands
 
@@ -193,9 +224,9 @@ Use the headless mode and browser binary that the environment under investigatio
 | `explain` | Render a compact explanation of a profile or compare result. |
 | `guide` | Guided terminal flow over the same commands. Alias: `tui`. |
 
-`botprint help <command>` lists flags. Notable `run` flags: `--probe-timeout <ms>` (per-check timeout inside the browser, default 2000), `--timeout <ms>` (CDP operations, default 10000), `--auth-header` (repeatable, for remote endpoints).
+`botprint help <command>` lists every flag. The `run` flags you're most likely to need: `--probe-timeout <ms>` (how long each check inside the browser may take, default 2000), `--timeout <ms>` (CDP operations, default 10000), and `--auth-header` (repeatable, for remote endpoints).
 
-## Exit Codes
+## Exit codes
 
 | Code | Meaning |
 | --- | --- |
@@ -206,21 +237,21 @@ Use the headless mode and browser binary that the environment under investigatio
 | `4` | Probe failure. |
 | `5` | Schema validation failure. |
 
-## Output Contract
+## Using the output in scripts and agents
 
-Profile JSON and compare JSON are the stable surfaces for scripts and agents. Markdown and `explain` output are prose. Profiles from an older `schema_version` fail validation with a hint to regenerate, so re-collect baselines with the Botprint version that compares them. The contract, finding IDs, warning IDs, and category glossary are documented in [`docs/agent-usage.md`](docs/agent-usage.md). Drop-in agent presets (a Claude Code skill and an `AGENTS.md` snippet) live in [`agent-presets/`](agent-presets).
+Build scripts and agents on the profile and compare JSON. Their fields are versioned and stay stable. The Markdown and `explain` output are written for people and may change between versions. A profile from an older `schema_version` fails validation with a hint to regenerate it, so when an upgrade changes the schema, collect your baselines again. [`docs/agent-usage.md`](docs/agent-usage.md) lists the JSON fields, finding IDs, warning IDs, and categories. [`agent-presets/`](agent-presets) has a ready-made Claude Code skill and an `AGENTS.md` snippet.
 
-## Validated On
+## Tested on
 
 - Linux x64: Chromium headless, Playwright Chromium headless shell (source run and compiled binary)
 - macOS arm64: Google Chrome new headless (source run and compiled binary); headed Chrome, Playwright Chromium, and Docker Chrome via `chromedp/headless-shell` last checked on v0.1
 
-Not yet validated: Windows binary, remote authenticated `wss://` CDP endpoints.
+Not tested yet: the Linux arm64, macOS x64, and Windows binaries (the release workflow builds them, but nobody has run them), and remote authenticated `wss://` CDP endpoints.
 
 ## Privacy
 
-Botprint does not upload anything. Profiles stay on disk. See [`PRIVACY.md`](PRIVACY.md) for what they contain.
+Botprint doesn't upload anything. Profiles stay on your disk. [`PRIVACY.md`](PRIVACY.md) describes what they contain.
 
-## Contributing and License
+## Contributing and license
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). MIT, see [`LICENSE`](LICENSE).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). MIT licensed; see [`LICENSE`](LICENSE).
